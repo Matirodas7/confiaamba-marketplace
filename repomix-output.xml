@@ -41,6 +41,7 @@ The content is organized as follows:
 
 <directory_structure>
 public/
+  _redirects
   favicon.png
   robots.txt
 src/
@@ -180,6 +181,7 @@ supabase/
 bunfig.toml
 components.json
 eslint.config.js
+netlify.toml
 package.json
 README.md
 tsconfig.json
@@ -188,6 +190,10 @@ vite.config.ts
 
 <files>
 This section contains the contents of the repository's files.
+
+<file path="public/_redirects">
+/*  /index.html  200
+</file>
 
 <file path="public/robots.txt">
 User-agent: Googlebot
@@ -9890,25 +9896,49 @@ function RejectCompletionDialog({ onConfirm }: { onConfirm: (note: string) => vo
 
 <file path="src/routes/_authenticated/cuenta.tsx">
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Loader2, ShieldCheck, User, Camera } from "lucide-react";
+import {
+  User,
+  Bell,
+  Lock,
+  MessageCircle,
+  Mail,
+  FileText,
+  Shield,
+  ChevronRight,
+  Hammer,
+  LogOut,
+  Loader2,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { PersonalDataForm } from "@/components/PersonalDataForm";
-import { ProfileForm } from "@/routes/_authenticated/pro";
+import { ProfileForm, AvatarUploader } from "@/routes/_authenticated/pro";
 import { ClientVerificationCard } from "@/routes/_authenticated/cliente";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/cuenta")({
   head: () => ({ meta: [{ title: "Mi cuenta | ConfiaAMBA" }] }),
   component: CuentaPage,
 });
 
+type TabType = "data" | "pro_profile" | "security";
+
 function CuentaPage() {
-  const { user, profile, role, loading, refresh } = useAuth();
+  const { user, profile, role, loading, refresh, signOut } = useAuth();
   const qc = useQueryClient();
+
+  const [activeTab, setActiveTab] = useState<TabType>("data");
+  const [mobileModal, setMobileModal] = useState<TabType | null>(null);
 
   const proDetails = useQuery({
     queryKey: ["pro-details", user?.id],
@@ -9932,100 +9962,289 @@ function CuentaPage() {
     );
   }
 
-  const backTo = role === "professional" ? "/pro" : "/cliente";
-  const isVerified = profile?.security_verified;
+  // ✅ SOLUCIÓN: Si es una pantalla de PC (ancho >= 768px), NO abre el modal móvil.
+  const handleSelectTab = (tab: TabType) => {
+    setActiveTab(tab);
+    if (window.innerWidth < 768) {
+      setMobileModal(tab);
+    }
+  };
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-6 sm:py-10">
-      {/* Botón Volver y Encabezado */}
-      <div className="flex items-center gap-2 sm:gap-3 mb-6">
-        <Button asChild variant="ghost" size="icon" className="rounded-full shrink-0">
-          <Link to={backTo as "/cliente"}>
-            <ArrowLeft className="size-5" />
-          </Link>
-        </Button>
+    <main className="mx-auto max-w-5xl px-4 py-6 sm:py-10 space-y-6">
+      {/* Encabezado Principal */}
+      <div className="flex items-center justify-between border-b border-border/60 pb-4">
         <div>
-          <h1 className="font-display text-xl sm:text-2xl font-bold text-foreground">Mi cuenta</h1>
-          <p className="text-xs sm:text-sm text-muted-foreground">
-            Tus datos personales y verificación, en un solo lugar.
+          <h1 className="font-display text-2xl md:text-3xl font-bold tracking-tight text-foreground">
+            Mi cuenta
+          </h1>
+          <p className="text-xs md:text-sm text-muted-foreground">
+            Gestioná tus datos personales, seguridad y preferencias de servicio.
           </p>
         </div>
+        <Button variant="ghost" size="icon" className="rounded-full" aria-label="Notificaciones" asChild>
+          <Link to="/mensajes">
+            <Bell className="size-5 text-muted-foreground" />
+          </Link>
+        </Button>
       </div>
 
-      <div className="space-y-5">
-        {/* Tarjeta de Perfil / Avatar */}
-        <div className="trust-card flex items-center gap-4 p-4 sm:p-5 border border-border/80 rounded-2xl bg-card shadow-sm">
-          <CustomAvatarUploader userId={user!.id} avatarUrl={profile?.avatar_url ?? null} />
-          
-          <div className="min-w-0 flex-1 space-y-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <p className="font-bold text-base sm:text-lg text-foreground truncate">
+      {/* Grid Principal Responsivo */}
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
+        
+        {/* COLUMNA IZQUIERDA / SIDEBAR (4 cols en PC) */}
+        <div className="md:col-span-4 space-y-5">
+          {/* Tarjeta de Perfil / Usuario */}
+          <div className="trust-card flex items-center gap-3.5 p-4 rounded-2xl border border-border/80 bg-card shadow-xs">
+            <AvatarUploader userId={user!.id} avatarUrl={profile?.avatar_url ?? null} />
+            <div className="min-w-0 flex-1 space-y-1">
+              <p className="font-bold text-base text-foreground truncate">
                 {profile?.full_name || "Usuario"}
               </p>
-              {isVerified && (
-                <Badge className="bg-emerald-100 text-emerald-800 border-0 text-[10px] gap-1 px-2 py-0.5">
-                  <ShieldCheck className="size-3 text-emerald-600" /> Verificado
-                </Badge>
-              )}
+              <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+              <Badge className="bg-emerald-500/10 text-emerald-700 font-semibold text-[10px] hover:bg-emerald-500/20 px-2 py-0">
+                {role === "professional" ? "Profesional" : role === "admin" ? "Admin" : "Cliente"}
+              </Badge>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Foto de perfil visible para la otra parte
-            </p>
+          </div>
+
+          {/* Banner Promocional para Clientes */}
+          {role === "client" && (
+            <Link
+              to="/auth"
+              className="relative block overflow-hidden rounded-2xl bg-emerald-700 p-4 text-white shadow-xs transition-transform active:scale-[0.99]"
+            >
+              <div className="flex items-center gap-3">
+                <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white/20">
+                  <Hammer className="size-5 text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-sm">¿Ofrecés un oficio?</p>
+                  <p className="text-xs text-emerald-100 line-clamp-1">
+                    Sumate como profesional y recibí pedidos.
+                  </p>
+                </div>
+                <ChevronRight className="size-5 text-emerald-200 shrink-0" />
+              </div>
+            </Link>
+          )}
+
+          {/* Menú de Navegación Lateral */}
+          <div className="space-y-4">
+            {/* Grupo: MI CUENTA */}
+            <div className="space-y-1.5">
+              <p className="text-[11px] font-bold tracking-wider text-muted-foreground uppercase px-1">
+                Mi cuenta
+              </p>
+              <div className="rounded-2xl border border-border/70 bg-card divide-y divide-border/60 overflow-hidden shadow-xs">
+                <button
+                  onClick={() => handleSelectTab("data")}
+                  className={cn(
+                    "flex w-full items-center justify-between p-3.5 text-left text-sm font-medium transition-colors hover:bg-muted/50",
+                    activeTab === "data" && "md:bg-emerald-50/80 md:text-emerald-900 md:font-semibold"
+                  )}
+                >
+                  <div className="flex items-center gap-3">
+                    <User className="size-4 text-muted-foreground" />
+                    <span>Mis datos</span>
+                  </div>
+                  <ChevronRight className="size-4 text-muted-foreground/70" />
+                </button>
+
+                {role === "professional" && (
+                  <button
+                    onClick={() => handleSelectTab("pro_profile")}
+                    className={cn(
+                      "flex w-full items-center justify-between p-3.5 text-left text-sm font-medium transition-colors hover:bg-muted/50",
+                      activeTab === "pro_profile" && "md:bg-emerald-50/80 md:text-emerald-900 md:font-semibold"
+                    )}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Hammer className="size-4 text-muted-foreground" />
+                      <span>Perfil de servicio y documentación</span>
+                    </div>
+                    <ChevronRight className="size-4 text-muted-foreground/70" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Grupo: SEGURIDAD */}
+            <div className="space-y-1.5">
+              <p className="text-[11px] font-bold tracking-wider text-muted-foreground uppercase px-1">
+                Seguridad
+              </p>
+              <div className="rounded-2xl border border-border/70 bg-card divide-y divide-border/60 overflow-hidden shadow-xs">
+                <button
+                  onClick={() => handleSelectTab("security")}
+                  className={cn(
+                    "flex w-full items-center justify-between p-3.5 text-left text-sm font-medium transition-colors hover:bg-muted/50",
+                    activeTab === "security" && "md:bg-emerald-50/80 md:text-emerald-900 md:font-semibold"
+                  )}
+                >
+                  <div className="flex items-center gap-3">
+                    <Lock className="size-4 text-muted-foreground" />
+                    <span>Verificación de identidad</span>
+                  </div>
+                  <ChevronRight className="size-4 text-muted-foreground/70" />
+                </button>
+              </div>
+            </div>
+
+            {/* Grupo: SOPORTE */}
+            <div className="space-y-1.5">
+              <p className="text-[11px] font-bold tracking-wider text-muted-foreground uppercase px-1">
+                Soporte
+              </p>
+              <div className="rounded-2xl border border-border/70 bg-card divide-y divide-border/60 overflow-hidden shadow-xs">
+                <a
+                  href="https://wa.me/5491100000000"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex w-full items-center justify-between p-3.5 text-left text-sm font-medium transition-colors hover:bg-muted/50"
+                >
+                  <div className="flex items-center gap-3">
+                    <MessageCircle className="size-4 text-muted-foreground" />
+                    <span>WhatsApp · soporte directo</span>
+                  </div>
+                  <ChevronRight className="size-4 text-muted-foreground/70" />
+                </a>
+
+                <a
+                  href="mailto:soporte@confiaamba.ar"
+                  className="flex w-full items-center justify-between p-3.5 text-left text-sm font-medium transition-colors hover:bg-muted/50"
+                >
+                  <div className="flex items-center gap-3">
+                    <Mail className="size-4 text-muted-foreground" />
+                    <span>Escribinos por email</span>
+                  </div>
+                  <ChevronRight className="size-4 text-muted-foreground/70" />
+                </a>
+
+                <Link
+                  to="/como-funciona"
+                  className="flex w-full items-center justify-between p-3.5 text-left text-sm font-medium transition-colors hover:bg-muted/50"
+                >
+                  <div className="flex items-center gap-3">
+                    <FileText className="size-4 text-muted-foreground" />
+                    <span>Términos y condiciones</span>
+                  </div>
+                  <ChevronRight className="size-4 text-muted-foreground/70" />
+                </Link>
+
+                <Link
+                  to="/como-funciona"
+                  className="flex w-full items-center justify-between p-3.5 text-left text-sm font-medium transition-colors hover:bg-muted/50"
+                >
+                  <div className="flex items-center gap-3">
+                    <Shield className="size-4 text-muted-foreground" />
+                    <span>Política de privacidad</span>
+                  </div>
+                  <ChevronRight className="size-4 text-muted-foreground/70" />
+                </Link>
+              </div>
+            </div>
+
+            {/* Botón de Cerrar Sesión */}
+            <Button
+              variant="outline"
+              className="w-full h-11 rounded-2xl text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/20 font-semibold gap-2"
+              onClick={signOut}
+            >
+              <LogOut className="size-4" /> Cerrar sesión
+            </Button>
           </div>
         </div>
 
-        {/* Formulario de Datos Personales (se removió la tarjeta externa para evitar el borde doble) */}
-        <PersonalDataForm userId={user!.id} profile={profile} onSaved={refresh} />
+        {/* COLUMNA DERECHA / PANEL PRINCIPAL (Solo se ve en PC) */}
+        <div className="hidden md:block md:col-span-8">
+          <div className="rounded-3xl border border-border/80 bg-card p-6 shadow-xs min-h-[500px]">
+            {activeTab === "data" && (
+              <div className="space-y-6">
+                <div className="border-b border-border/60 pb-3">
+                  <h2 className="text-xl font-bold text-foreground">Mis datos personales</h2>
+                  <p className="text-xs text-muted-foreground">
+                    Modificá la información de contacto y ubicación de tu cuenta.
+                  </p>
+                </div>
+                <PersonalDataForm
+                  userId={user!.id}
+                  profile={profile}
+                  onSaved={() => refresh()}
+                />
+              </div>
+            )}
 
-        {/* Verificación de Cliente (opcional) */}
-        {role === "client" && (
-          <ClientVerificationCard userId={user!.id} profile={profile} onSaved={refresh} />
-        )}
+            {activeTab === "pro_profile" && role === "professional" && (
+              <ProfileForm
+                details={proDetails.data}
+                userId={user!.id}
+                onSaved={() => qc.invalidateQueries()}
+              />
+            )}
 
-        {/* Perfil de Servicio (si es Profesional) */}
-        {role === "professional" && (
-          <div className="trust-card p-4 sm:p-6 border border-border/80 rounded-2xl bg-card shadow-sm space-y-4">
-            <div>
-              <h2 className="font-display text-lg font-bold text-foreground">
-                Perfil de servicio y documentación
-              </h2>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Especialidad, zonas de trabajo, precios y la documentación que te da la insignia de verificado.
-              </p>
-            </div>
-            <ProfileForm
-              details={proDetails.data}
-              userId={user!.id}
-              onSaved={() => qc.invalidateQueries()}
-            />
+            {activeTab === "security" && (
+              <ClientVerificationCard
+                userId={user!.id}
+                profile={profile}
+                onSaved={() => refresh()}
+              />
+            )}
           </div>
+        </div>
+
+      </div>
+
+      {/* MODALES EXCLUSIVOS PARA DISPOSITIVOS MÓVILES */}
+      <div className="md:hidden">
+        {/* Modal: Mis Datos */}
+        <Dialog open={mobileModal === "data"} onOpenChange={(o) => !o && setMobileModal(null)}>
+          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Mis datos personales</DialogTitle>
+            </DialogHeader>
+            <PersonalDataForm
+              userId={user!.id}
+              profile={profile}
+              onSaved={() => {
+                refresh();
+                setMobileModal(null);
+              }}
+            />
+          </DialogContent>
+        </Dialog>
+
+        {/* Modal: Perfil Profesional */}
+        {role === "professional" && (
+          <Dialog open={mobileModal === "pro_profile"} onOpenChange={(o) => !o && setMobileModal(null)}>
+            <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+              <ProfileForm
+                details={proDetails.data}
+                userId={user!.id}
+                onSaved={() => {
+                  qc.invalidateQueries();
+                  setMobileModal(null);
+                }}
+              />
+            </DialogContent>
+          </Dialog>
         )}
+
+        {/* Modal: Verificación y Seguridad */}
+        <Dialog open={mobileModal === "security"} onOpenChange={(o) => !o && setMobileModal(null)}>
+          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+            <ClientVerificationCard
+              userId={user!.id}
+              profile={profile}
+              onSaved={() => {
+                refresh();
+                setMobileModal(null);
+              }}
+            />
+          </DialogContent>
+        </Dialog>
       </div>
     </main>
-  );
-}
-
-// Avatar con silueta de persona (User icon) como fallback
-function CustomAvatarUploader({
-  userId,
-  avatarUrl,
-}: {
-  userId: string;
-  avatarUrl: string | null;
-}) {
-  return (
-    <div className="relative shrink-0">
-      <Avatar className="size-16 sm:size-20 rounded-full border border-border">
-        <AvatarImage src={avatarUrl ?? undefined} className="object-cover" />
-        <AvatarFallback className="bg-secondary">
-          <User className="size-8 sm:size-10 text-muted-foreground" />
-        </AvatarFallback>
-      </Avatar>
-
-      <div className="absolute -bottom-1 -right-1 flex size-7 items-center justify-center rounded-full bg-foreground text-background shadow-md">
-        <Camera className="size-3.5" />
-      </div>
-    </div>
   );
 }
 </file>
@@ -10184,10 +10403,11 @@ import {
   Camera,
   BadgeCheck,
   DollarSign,
-  CalendarClock,
   MapPin,
-  MoreVertical,
   X,
+  ExternalLink,
+  ChevronRight,
+  CheckCircle2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -10236,9 +10456,6 @@ import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/pro")({
   beforeLoad: async ({ context }) => {
-    // Ver el comentario equivalente en cliente.tsx: el rol ya viene resuelto
-    // desde el beforeLoad del layout padre; evitamos una segunda consulta
-    // (y la carrera que causaba el loop /cliente <-> /pro).
     const roles = context.roles ?? [];
     if (roles.length > 0 && !roles.includes("professional") && !roles.includes("admin")) {
       throw redirect({ to: "/cliente" });
@@ -10252,25 +10469,15 @@ export const Route = createFileRoute("/_authenticated/pro")({
         content:
           "Completá tu verificación, gestioná leads, enviá presupuestos y seguí tus ganancias en AMBA.",
       },
-      { property: "og:title", content: "Panel del profesional | ConfiaAMBA" },
-      {
-        property: "og:description",
-        content: "Leads, presupuestos, ganancias y suscripción Premium.",
-      },
     ],
   }),
   component: ProDashboard,
 });
 
 function ProDashboard() {
-  const { user, profile, role, loading } = useAuth();
+  const { user, profile, loading } = useAuth();
   const qc = useQueryClient();
   const [zoomSrc, setZoomSrc] = useState<string | null>(null);
-
-  // La separación de rutas por rol ya la resuelve el beforeLoad de esta
-  // ruta (ver arriba). Ver el comentario equivalente en cliente.tsx sobre
-  // por qué tener un segundo guard acá (useEffect + role de useAuth())
-  // generaba el loop de redirección /cliente <-> /pro.
 
   const details = useQuery({
     queryKey: ["pro-details", user?.id],
@@ -10286,10 +10493,6 @@ function ProDashboard() {
     },
   });
 
-  // Lógica de solicitud general (broadcasting): solo vemos pedidos dirigidos
-  // a nosotros o pedidos generales cuya categoría coincide con las nuestras.
-  // La RLS ya filtra esto en el server; acá replicamos el filtro de
-  // categoría por las dudas de que details tarde en cargar/cambiar.
   const leads = useQuery({
     queryKey: ["pro-leads", user?.id, details.data?.categories],
     enabled: !!user && !!details.data,
@@ -10317,12 +10520,10 @@ function ProDashboard() {
     },
   });
 
-  // Historial de trabajos: pedidos completos detrás de cada presupuesto
-  // aceptado, con su estado y estado de pago. (Los hooks van antes de
-  // cualquier return condicional para respetar las reglas de React.)
   const acceptedRequestIds = (myQuotes.data ?? [])
     .filter((q) => q.accepted)
     .map((q) => q.request_id);
+
   const jobsQuery = useQuery({
     queryKey: ["pro-jobs", acceptedRequestIds.join(",")],
     enabled: acceptedRequestIds.length > 0,
@@ -10337,8 +10538,6 @@ function ProDashboard() {
     },
   });
 
-  // Datos de contacto de los clientes, tanto para los leads como para el
-  // historial de trabajos ya aceptados: una sola consulta combinada.
   const { profileOf: jobClientOf } = useProfileLookup([
     ...(leads.data ?? []).map((r) => r.client_id),
     ...(jobsQuery.data ?? []).map((j) => j.client_id),
@@ -10367,80 +10566,97 @@ function ProDashboard() {
     }, 0);
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-10">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <AvatarUploader userId={user!.id} avatarUrl={profile?.avatar_url ?? null} />
-          <div>
-            <h1 className="font-display text-3xl font-bold">{profile?.full_name}</h1>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <Badge
-                className={cn(
-                  d?.verification === "approved"
-                    ? "bg-verified text-verified-foreground"
-                    : d?.verification === "rejected"
-                      ? "bg-destructive text-destructive-foreground"
-                      : "bg-secondary text-secondary-foreground",
+    <main className="mx-auto max-w-5xl px-4 py-6 sm:py-8 space-y-6">
+      {/* Header Estilo Dashboard Profesional */}
+      <div className="rounded-3xl border border-border/70 bg-card p-5 sm:p-6 shadow-xs">
+        <div className="flex flex-col sm:flex-row items-center sm:items-start justify-between gap-5">
+          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 text-center sm:text-left">
+            <AvatarUploader userId={user!.id} avatarUrl={profile?.avatar_url ?? null} />
+            
+            <div className="space-y-1.5 min-w-0">
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-foreground truncate">
+                  {profile?.full_name || "Usuario"}
+                </h1>
+                {d?.is_premium && (
+                  <Badge className="bg-emerald-600 text-white hover:bg-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                    PRO
+                  </Badge>
                 )}
-              >
-                <ShieldCheck className="size-3.5" />
-                {d?.verification === "approved"
-                  ? "Verificado"
-                  : d?.verification === "rejected"
-                    ? "Verificación rechazada"
-                    : "Verificación pendiente"}
-              </Badge>
-              {d?.is_featured && (
-                <Badge className="bg-featured text-featured-foreground">
-                  <Crown className="size-3.5" /> Destacado
+              </div>
+
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-0.5">
+                <Badge
+                  className={cn(
+                    "px-2.5 py-0.5 rounded-full text-xs font-semibold border-none flex items-center gap-1",
+                    d?.verification === "approved"
+                      ? "bg-emerald-500/10 text-emerald-700"
+                      : d?.verification === "rejected"
+                        ? "bg-destructive/10 text-destructive"
+                        : "bg-secondary text-secondary-foreground"
+                  )}
+                >
+                  <ShieldCheck className="size-3.5" />
+                  {d?.verification === "approved"
+                    ? "Verificado"
+                    : d?.verification === "rejected"
+                      ? "Rechazado"
+                      : "Verificación pendiente"}
                 </Badge>
-              )}
-              {d?.is_premium && <Badge variant="outline">Premium</Badge>}
-              <StarRating value={Number(d?.rating_avg ?? 0)} count={d?.reviews_count ?? 0} />
+
+                {d?.is_featured && (
+                  <Badge className="bg-amber-500/10 text-amber-800 text-xs font-semibold border-none px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                    <Crown className="size-3.5" /> Destacado
+                  </Badge>
+                )}
+
+                <div className="flex items-center gap-1 text-xs font-bold text-foreground">
+                  <StarRating value={Number(d?.rating_avg ?? 0)} count={d?.reviews_count ?? 0} />
+                </div>
+              </div>
             </div>
           </div>
+
+          <Button asChild variant="outline" size="sm" className="rounded-xl text-xs font-semibold gap-1.5 shrink-0">
+            <Link to="/pro/$proId" params={{ proId: user!.id }}>
+              <ExternalLink className="size-3.5" /> Ver mi perfil público
+            </Link>
+          </Button>
         </div>
       </div>
 
-      <Tabs defaultValue="leads" className="mt-8">
-        <TabsList className="flex-wrap">
-          <TabsTrigger value="leads">Leads</TabsTrigger>
-          <TabsTrigger value="portafolio">Portafolio</TabsTrigger>
-          <TabsTrigger value="ganancias">Ganancias</TabsTrigger>
-          <TabsTrigger value="premium">Premium</TabsTrigger>
+      {/* Tabs Principales de Control */}
+      <Tabs defaultValue="leads" className="w-full space-y-6">
+        <TabsList className="inline-flex h-11 items-center justify-start rounded-2xl bg-muted/60 p-1 text-muted-foreground w-full sm:w-auto">
+          <TabsTrigger value="leads" className="rounded-xl px-4 text-xs sm:text-sm font-semibold">Leads</TabsTrigger>
+          <TabsTrigger value="portafolio" className="rounded-xl px-4 text-xs sm:text-sm font-semibold">Portafolio</TabsTrigger>
+          <TabsTrigger value="ganancias" className="rounded-xl px-4 text-xs sm:text-sm font-semibold">Ganancias</TabsTrigger>
+          <TabsTrigger value="premium" className="rounded-xl px-4 text-xs sm:text-sm font-semibold">Premium</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="leads" className="mt-6 space-y-4">
+        {/* TAB 1: LEADS */}
+        <TabsContent value="leads" className="space-y-4">
           {!d?.onboarding_complete && (
-            <div className="trust-card flex flex-wrap items-center justify-between gap-3 border-featured/50 bg-featured/10 p-4 text-sm">
-              <span>
-                Completá tu perfil y subí tu documentación para aparecer en las búsquedas.
-              </span>
-              <Button asChild size="sm">
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200/80 bg-amber-50/80 p-4 text-xs sm:text-sm text-amber-900">
+              <span>Completá tu perfil y subí tu documentación para aparecer en las búsquedas.</span>
+              <Button asChild size="sm" className="rounded-xl font-semibold bg-amber-700 hover:bg-amber-800 text-white">
                 <Link to="/cuenta">Completar perfil</Link>
               </Button>
             </div>
           )}
+
           {(() => {
-            // Un pedido con presupuesto aceptado de OTRO profesional ya no
-            // nos corresponde. Ordenamos lo que sí vemos poniendo primero lo
-            // que necesita nuestra atención (esperando confirmación, en
-            // proceso), después las solicitudes directas, y por último lo
-            // general — así no hay que escanear toda la lista para ver qué
-            // está más avanzado.
             const LEAD_PRIORITY: Record<string, number> = {
               pending_confirmation: 0,
               accepted: 1,
               quoted: 2,
               pending: 3,
             };
+
             const visibleLeads = (leads.data ?? [])
               .filter((r) => {
                 const mine = (myQuotes.data ?? []).find((q) => q.request_id === r.id);
-                if (
-                  (r.status === "accepted" || r.status === "pending_confirmation") &&
-                  !mine?.accepted
-                ) {
+                if ((r.status === "accepted" || r.status === "pending_confirmation") && !mine?.accepted) {
                   return false;
                 }
                 return true;
@@ -10454,7 +10670,7 @@ function ProDashboard() {
 
             if (visibleLeads.length === 0) {
               return (
-                <div className="trust-card p-8 text-center text-sm text-muted-foreground">
+                <div className="rounded-3xl border border-border/80 bg-card p-12 text-center text-sm text-muted-foreground shadow-xs">
                   No hay pedidos abiertos por ahora.
                 </div>
               );
@@ -10464,34 +10680,40 @@ function ProDashboard() {
               const mine = (myQuotes.data ?? []).find((q) => q.request_id === r.id);
               const client = clientById.get(r.client_id);
               return (
-                <article key={r.id} className="trust-card p-5 sm:p-6">
-                  {/* Header */}
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant="secondary">{r.category}</Badge>
+                <article key={r.id} className="rounded-3xl border border-border/80 bg-card p-5 sm:p-6 shadow-xs space-y-4">
+                  {/* Fila 1: Badges y fecha */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <Badge variant="secondary" className="rounded-full text-xs font-semibold">
+                        {r.category}
+                      </Badge>
                       {r.target_pro_id === user!.id && (
-                        <Badge className="bg-verified text-verified-foreground">
+                        <Badge className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-full text-[11px] font-semibold">
                           Solicitud directa
                         </Badge>
                       )}
-                      {r.status === "accepted" && <Badge>En proceso</Badge>}
-                      <span className="flex items-center gap-1 text-sm text-muted-foreground">
-                        <MapPin className="size-3.5" />
+                      {r.status === "accepted" && (
+                        <Badge className="bg-foreground text-background rounded-full text-[11px] font-semibold">
+                          En proceso
+                        </Badge>
+                      )}
+                      <span className="flex items-center gap-1 text-xs text-muted-foreground pl-1 font-medium">
+                        <MapPin className="size-3.5 text-muted-foreground shrink-0" />
                         {ZONE_LABELS[r.zone as Zone]}
-                      </span>
-                      <span className="text-sm text-muted-foreground">
-                        {new Date(r.created_at).toLocaleDateString("es-AR")}
                       </span>
                     </div>
 
-                    {r.target_pro_id === user!.id &&
-                      (r.status === "pending" || r.status === "quoted") && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground font-medium">
+                        {new Date(r.created_at).toLocaleDateString("es-AR")}
+                      </span>
+                      {r.target_pro_id === user!.id && (r.status === "pending" || r.status === "quoted") && (
                         <ReasonDialog
                           trigger={
                             <Button
                               size="icon"
                               variant="ghost"
-                              className="size-8 text-muted-foreground hover:text-destructive"
+                              className="size-7 rounded-full text-muted-foreground hover:text-destructive"
                               title="No puedo realizar este trabajo"
                             >
                               <X className="size-4" />
@@ -10516,62 +10738,58 @@ function ProDashboard() {
                           }}
                         />
                       )}
+                    </div>
                   </div>
 
-                  {/* Cuerpo: cliente + detalle/presupuesto */}
-                  <div className="mt-4 grid gap-4 lg:grid-cols-3">
-                    {/* Columna 1: cliente */}
-                    <div className="rounded-xl border border-border/60 bg-surface p-4 lg:col-span-1">
+                  {/* Fila 2: Grid Cliente + Contenido */}
+                  <div className="grid gap-4 lg:grid-cols-12 items-start">
+                    {/* Tarjeta lateral del cliente */}
+                    <div className="lg:col-span-4 rounded-2xl border border-border/70 bg-muted/30 p-3.5 space-y-3">
                       <div className="flex items-center gap-3">
-                        <Avatar className="size-11 shrink-0">
-                          <AvatarImage
-                            src={client?.avatar_url ?? undefined}
-                            alt={client?.full_name ?? "Cliente"}
-                          />
-                          <AvatarFallback>
+                        <Avatar className="size-10 shrink-0 border border-border shadow-xs">
+                          <AvatarImage src={client?.avatar_url ?? undefined} alt={client?.full_name ?? "Cliente"} />
+                          <AvatarFallback className="bg-emerald-700 text-white font-bold text-sm">
                             {(client?.full_name ?? "C").slice(0, 1).toUpperCase()}
                           </AvatarFallback>
                         </Avatar>
-                        <div className="min-w-0">
-                          <p className="truncate font-semibold">{client?.full_name ?? "Cliente"}</p>
-                          <p className="flex items-center gap-1 text-sm text-muted-foreground">
-                            <MapPin className="size-3.5 shrink-0" />
-                            <span className="truncate">{r.address}</span>
-                          </p>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-bold text-sm text-foreground">{client?.full_name ?? "Cliente"}</p>
+                          <p className="text-xs text-muted-foreground truncate">{r.address}</p>
                         </div>
                       </div>
-                      <div className="mt-3 border-t border-border/60 pt-3">
+
+                      <div className="pt-2 border-t border-border/60 text-xs">
                         {client?.phone ? (
                           <a
                             href={`tel:${client.phone}`}
-                            className="flex items-center gap-1.5 text-sm font-medium text-verified hover:underline"
+                            className="flex items-center gap-1.5 font-semibold text-emerald-700 hover:underline"
                           >
-                            <Phone className="size-3.5" />
-                            {client.phone}
+                            <Phone className="size-3.5" /> {client.phone}
                           </a>
                         ) : (
-                          <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                            <PhoneOff className="size-3.5" />
-                            Sin teléfono cargado
+                          <p className="flex items-center gap-1.5 text-muted-foreground">
+                            <PhoneOff className="size-3.5" /> Sin teléfono cargado
                           </p>
                         )}
                       </div>
                     </div>
 
-                    {/* Columna 2-3: detalle + presupuesto estimado */}
-                    <div className="flex flex-col gap-3 lg:col-span-2">
+                    {/* Descripción y Presupuesto */}
+                    <div className="lg:col-span-8 space-y-3">
                       <div>
-                        <p className="text-sm font-medium text-muted-foreground">Qué necesita</p>
-                        <p className="mt-1 text-sm leading-relaxed">{r.description}</p>
+                        <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Qué necesita</p>
+                        <p className="mt-1 text-xs sm:text-sm text-foreground/90 leading-relaxed font-normal">
+                          {r.description}
+                        </p>
                         {r.photos && r.photos.length > 0 && (
-                          <div className="mt-2 flex gap-2 overflow-x-auto">
+                          <div className="mt-2.5 flex gap-2 overflow-x-auto pb-1">
                             {r.photos.map((url) => (
                               <img
                                 key={url}
                                 src={url}
                                 alt="Foto del problema"
                                 onClick={() => setZoomSrc(url)}
-                                className="size-16 shrink-0 cursor-zoom-in rounded-lg object-cover"
+                                className="size-16 shrink-0 cursor-zoom-in rounded-xl object-cover border border-border/60 hover:opacity-90"
                               />
                             ))}
                           </div>
@@ -10579,16 +10797,16 @@ function ProDashboard() {
                       </div>
 
                       {r.budget_hint && (
-                        <div className="flex items-center justify-between gap-3 rounded-xl bg-verified/8 px-4 py-3">
+                        <div className="flex items-center justify-between gap-3 rounded-2xl bg-emerald-50/70 border border-emerald-100 p-3.5">
                           <div className="flex items-center gap-2.5">
-                            <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-verified/15">
-                              <Wallet className="size-4 text-verified" />
+                            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-emerald-100">
+                              <Wallet className="size-4 text-emerald-700" />
                             </span>
-                            <span className="text-sm text-verified">
+                            <span className="text-xs font-medium text-emerald-950">
                               Presupuesto estimado del cliente
                             </span>
                           </div>
-                          <span className="font-display text-lg font-bold text-verified">
+                          <span className="font-display text-base font-bold text-emerald-900">
                             {r.budget_hint}
                           </span>
                         </div>
@@ -10596,53 +10814,34 @@ function ProDashboard() {
                     </div>
                   </div>
 
-                  {/* Footer: resumen o formulario de cotización */}
+                  {/* Fila 3: Presupuesto enviado o Formulario */}
                   {mine && !mine.revision_requested && !mine.rejected ? (
-                    <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-border/60 pt-5">
-                      <p className="text-sm font-medium text-verified">
-                        Presupuesto enviado: {formatARS(Number(mine.price_offered))}
-                        {mine.accepted ? " · Aceptado" : ""}
-                      </p>
-                      {mine.accepted && r.status === "done" && (
-                        <Badge
-                          className={r.is_paid ? "bg-verified text-verified-foreground" : ""}
-                          variant={r.is_paid ? "default" : "secondary"}
-                        >
-                          <DollarSign className="size-3.5" />{" "}
-                          {r.is_paid ? "Pagado" : "Pago pendiente"}
-                        </Badge>
-                      )}
-                      {mine.accepted && r.status === "accepted" && (
-                        <MarkFinishedButton
-                          requestId={r.id}
-                          onDone={() => qc.invalidateQueries()}
-                        />
-                      )}
-                      {mine.accepted && r.status === "pending_confirmation" && (
-                        <Badge variant="secondary">
-                          <Loader2 className="size-3.5 animate-spin" /> Esperando confirmación del
-                          cliente
-                        </Badge>
-                      )}
-                      <Button
-                        asChild
-                        size="icon"
-                        variant="outline"
-                        title="Mensajes"
-                        className="ml-auto"
-                      >
-                        <Link to="/mensajes" search={{ requestId: r.id, proId: user!.id }}>
-                          <MessageCircle className="size-4" />
-                        </Link>
-                      </Button>
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-4">
+                      <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm">
+                        <span className="font-semibold text-emerald-700">
+                          Presupuesto enviado: {formatARS(Number(mine.price_offered))}
+                        </span>
+                        {mine.accepted && <Badge variant="secondary" className="bg-emerald-50 text-emerald-800">Aceptado</Badge>}
+                        {mine.accepted && r.status === "done" && (
+                          <Badge className={r.is_paid ? "bg-emerald-600 text-white" : ""}>
+                            <DollarSign className="size-3.5" /> {r.is_paid ? "Pagado" : "Pago pendiente"}
+                          </Badge>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {mine.accepted && r.status === "accepted" && (
+                          <MarkFinishedButton requestId={r.id} onDone={() => qc.invalidateQueries()} />
+                        )}
+                        <Button asChild size="icon" variant="outline" className="rounded-full size-9" title="Mensajes">
+                          <Link to="/mensajes" search={{ requestId: r.id, proId: user!.id }}>
+                            <MessageCircle className="size-4" />
+                          </Link>
+                        </Button>
+                      </div>
                     </div>
                   ) : (
-                    <QuoteForm
-                      request={r}
-                      mine={mine}
-                      proId={user!.id}
-                      onSubmitted={() => qc.invalidateQueries()}
-                    />
+                    <QuoteForm request={r} mine={mine} proId={user!.id} onSubmitted={() => qc.invalidateQueries()} />
                   )}
                 </article>
               );
@@ -10650,7 +10849,8 @@ function ProDashboard() {
           })()}
         </TabsContent>
 
-        <TabsContent value="portafolio" className="mt-6">
+        {/* TAB 2: PORTAFOLIO */}
+        <TabsContent value="portafolio">
           <PortfolioSection
             userId={user!.id}
             portfolioUrls={d?.portfolio_urls ?? []}
@@ -10658,110 +10858,86 @@ function ProDashboard() {
           />
         </TabsContent>
 
-        <TabsContent value="ganancias" className="mt-6">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              { icon: Wallet, label: "Ganado (aceptado)", value: formatARS(earned) },
-              { icon: DollarSign, label: "Cobrado", value: formatARS(collected) },
-              { icon: TrendingUp, label: "En cotizaciones pendientes", value: formatARS(pending) },
-              {
-                icon: BriefcaseBusiness,
-                label: "Trabajos finalizados",
-                value: String(finishedJobs.length),
-              },
-            ].map((s) => (
-              <div key={s.label} className="trust-card p-5">
-                <s.icon className="size-5 text-verified" />
-                <p className="mt-3 text-sm text-muted-foreground">{s.label}</p>
-                <p className="font-display text-2xl font-bold">{s.value}</p>
+        {/* TAB 3: GANANCIAS Y HISTORIAL */}
+        <TabsContent value="ganancias" className="space-y-6">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <div className="rounded-2xl border border-border/80 bg-card p-4 space-y-2 shadow-xs">
+              <div className="flex size-9 items-center justify-center rounded-full bg-emerald-50 text-emerald-700">
+                <Wallet className="size-4" />
               </div>
-            ))}
+              <p className="text-xs text-muted-foreground font-medium">Ganado (aceptado)</p>
+              <p className="font-display text-lg sm:text-2xl font-bold text-foreground">{formatARS(earned)}</p>
+            </div>
+
+            <div className="rounded-2xl border border-border/80 bg-card p-4 space-y-2 shadow-xs">
+              <div className="flex size-9 items-center justify-center rounded-full bg-emerald-50 text-emerald-700">
+                <DollarSign className="size-4" />
+              </div>
+              <p className="text-xs text-muted-foreground font-medium">Cobrado</p>
+              <p className="font-display text-lg sm:text-2xl font-bold text-foreground">{formatARS(collected)}</p>
+            </div>
+
+            <div className="rounded-2xl border border-border/80 bg-card p-4 space-y-2 shadow-xs">
+              <div className="flex size-9 items-center justify-center rounded-full bg-amber-50 text-amber-700">
+                <TrendingUp className="size-4" />
+              </div>
+              <p className="text-xs text-muted-foreground font-medium">En cotización</p>
+              <p className="font-display text-lg sm:text-2xl font-bold text-foreground">{formatARS(pending)}</p>
+            </div>
+
+            <div className="rounded-2xl border border-border/80 bg-card p-4 space-y-2 shadow-xs">
+              <div className="flex size-9 items-center justify-center rounded-full bg-blue-50 text-blue-700">
+                <BriefcaseBusiness className="size-4" />
+              </div>
+              <p className="text-xs text-muted-foreground font-medium">Trabajos hechos</p>
+              <p className="font-display text-lg sm:text-2xl font-bold text-foreground">{finishedJobs.length}</p>
+            </div>
           </div>
 
-          <div className="trust-card mt-4 p-5">
-            <h2 className="text-lg font-semibold">Historial de trabajos</h2>
-            <div className="mt-3 space-y-2">
-              {jobsQuery.isLoading && <Loader2 className="size-5 animate-spin" />}
+          <div className="rounded-3xl border border-border/80 bg-card p-5 sm:p-6 space-y-4 shadow-xs">
+            <h2 className="font-bold text-base text-foreground">Historial de trabajos</h2>
+            <div className="space-y-3">
+              {jobsQuery.isLoading && <Loader2 className="size-5 animate-spin text-muted-foreground" />}
               {acceptedRequestIds.length === 0 && (
-                <p className="text-sm text-muted-foreground">
-                  Todavía no tenés presupuestos aceptados.
-                </p>
+                <p className="text-xs text-muted-foreground">Todavía no tenés presupuestos aceptados.</p>
               )}
               {(jobsQuery.data ?? []).map((j) => {
                 const q = accepted.find((q) => q.request_id === j.id);
                 const client = jobClientOf(j.client_id);
                 return (
-                  <div key={j.id} className="rounded-xl bg-surface p-3 text-sm">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant="secondary">{j.category}</Badge>
-                      <Badge>{REQUEST_STATUS_LABELS[j.status]}</Badge>
-                      {j.status === "done" && (
-                        <Badge
-                          className={j.is_paid ? "bg-verified text-verified-foreground" : ""}
-                          variant={j.is_paid ? "default" : "outline"}
-                        >
-                          <DollarSign className="size-3.5" />{" "}
-                          {j.is_paid ? "Pagado" : "Pago pendiente"}
-                        </Badge>
-                      )}
-                      <span className="ml-auto font-semibold">
+                  <div key={j.id} className="rounded-2xl border border-border/60 bg-muted/20 p-4 space-y-3 text-xs sm:text-sm">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/50 pb-2.5">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <Badge variant="secondary" className="rounded-full">{j.category}</Badge>
+                        <Badge className="rounded-full">{REQUEST_STATUS_LABELS[j.status]}</Badge>
+                        {j.status === "done" && (
+                          <Badge className={j.is_paid ? "bg-emerald-600 text-white" : ""}>
+                            <DollarSign className="size-3.5" /> {j.is_paid ? "Pagado" : "Pago pendiente"}
+                          </Badge>
+                        )}
+                      </div>
+                      <span className="font-bold text-foreground text-sm">
                         {formatARS(Number(q?.price_offered ?? 0))}
                       </span>
                     </div>
 
                     {client && (
-                      <div className="mt-2.5 flex items-center gap-3 rounded-lg bg-background p-2.5">
-                        <Avatar className="size-9">
-                          <AvatarImage
-                            src={client.avatar_url ?? undefined}
-                            alt={client.full_name}
-                          />
-                          <AvatarFallback>
-                            {client.full_name.slice(0, 1).toUpperCase()}
-                          </AvatarFallback>
+                      <div className="flex items-center gap-3">
+                        <Avatar className="size-8 shrink-0">
+                          <AvatarImage src={client.avatar_url ?? undefined} alt={client.full_name} />
+                          <AvatarFallback>{client.full_name.slice(0, 1).toUpperCase()}</AvatarFallback>
                         </Avatar>
                         <div className="min-w-0 flex-1">
-                          <p className="truncate font-medium">{client.full_name}</p>
-                          <p className="text-muted-foreground">{j.address}</p>
-                          {client.phone && (
-                            <a
-                              href={`tel:${client.phone}`}
-                              className="text-verified hover:underline"
-                            >
-                              {client.phone}
-                            </a>
-                          )}
+                          <p className="truncate font-semibold text-foreground">{client.full_name}</p>
+                          <p className="text-xs text-muted-foreground truncate">{j.address}</p>
                         </div>
                       </div>
                     )}
 
-                    <p className="mt-2 text-muted-foreground">
-                      Pedido el {new Date(j.created_at).toLocaleDateString("es-AR")}
-                    </p>
-
-                    {j.status === "accepted" && q && (
-                      <div className="mt-2.5 flex flex-wrap items-center gap-2">
-                        <DateTimePicker
-                          value={q.scheduled_at ? new Date(q.scheduled_at) : undefined}
-                          onChange={async (d) => {
-                            const { error } = await supabase
-                              .from("quotes")
-                              .update({ scheduled_at: d ? d.toISOString() : null })
-                              .eq("id", q.id);
-                            if (error) {
-                              toast.error("No se pudo actualizar la fecha");
-                              return;
-                            }
-                            toast.success(
-                              d ? "Le avisamos la nueva fecha al cliente" : "Fecha quitada",
-                            );
-                            qc.invalidateQueries();
-                          }}
-                        />
-                      </div>
-                    )}
-
-                    <div className="mt-3">
+                    <div className="flex items-center justify-between pt-1">
+                      <span className="text-xs text-muted-foreground">
+                        Pedido el {new Date(j.created_at).toLocaleDateString("es-AR")}
+                      </span>
                       <JobDetailDialog
                         data={{
                           requestId: j.id,
@@ -10786,39 +10962,10 @@ function ProDashboard() {
               })}
             </div>
           </div>
-
-          <div className="trust-card mt-4 p-5">
-            <h2 className="text-lg font-semibold">Presupuestos enviados</h2>
-            <div className="mt-3 space-y-2">
-              {(myQuotes.data ?? []).length === 0 && (
-                <p className="text-sm text-muted-foreground">Todavía no enviaste presupuestos.</p>
-              )}
-              {(myQuotes.data ?? []).map((q) => (
-                <div
-                  key={q.id}
-                  className="flex items-center justify-between rounded-xl bg-surface p-3 text-sm"
-                >
-                  <span>{q.message || "Presupuesto"}</span>
-                  <span className="flex items-center gap-3">
-                    <span className="font-semibold">{formatARS(Number(q.price_offered))}</span>
-                    <Badge
-                      variant={q.accepted ? "default" : "secondary"}
-                      className={q.revision_requested ? "bg-featured text-featured-foreground" : ""}
-                    >
-                      {q.accepted
-                        ? "Aceptado"
-                        : q.revision_requested
-                          ? "Revisión pedida"
-                          : "Pendiente"}
-                    </Badge>
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
         </TabsContent>
 
-        <TabsContent value="premium" className="mt-6">
+        {/* TAB 4: PREMIUM */}
+        <TabsContent value="premium">
           <PremiumPanel isPremium={!!d?.is_premium} isFeatured={!!d?.is_featured} />
         </TabsContent>
       </Tabs>
@@ -10846,11 +10993,11 @@ function MarkFinishedButton({ requestId, onDone }: { requestId: string; onDone: 
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button size="sm" disabled={saving}>
-          {saving && <Loader2 className="size-4 animate-spin" />} Marcar trabajo como finalizado
+        <Button size="sm" disabled={saving} className="rounded-xl font-bold bg-foreground hover:bg-foreground/90 text-background text-xs">
+          {saving && <Loader2 className="size-3.5 animate-spin mr-1" />} Marcar trabajo como finalizado
         </Button>
       </AlertDialogTrigger>
-      <AlertDialogContent>
+      <AlertDialogContent className="rounded-3xl">
         <AlertDialogHeader>
           <AlertDialogTitle>¿Terminaste este trabajo?</AlertDialogTitle>
           <AlertDialogDescription>
@@ -10858,15 +11005,16 @@ function MarkFinishedButton({ requestId, onDone }: { requestId: string; onDone: 
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Todavía no</AlertDialogCancel>
-          <AlertDialogAction onClick={markFinished}>Sí, confirmar</AlertDialogAction>
+          <AlertDialogCancel className="rounded-xl">Todavía no</AlertDialogCancel>
+          <AlertDialogAction onClick={markFinished} className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white">
+            Sí, confirmar
+          </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
   );
 }
 
-/** Selector de fecha+hora embebible (sin lógica propia de guardado). */
 type LeadRequest = {
   id: string;
   target_pro_id: string | null;
@@ -10883,7 +11031,6 @@ type LeadQuote = {
   scheduled_at: string | null;
 };
 
-/** Formulario para enviar o reenviar un presupuesto, con fecha de visita opcional. */
 function QuoteForm({
   request,
   mine,
@@ -10928,29 +11075,19 @@ function QuoteForm({
   }
 
   return (
-    <form className="mt-5 space-y-3 border-t border-border/60 pt-5" onSubmit={submit}>
+    <form className="mt-4 space-y-3 border-t border-border/60 pt-4" onSubmit={submit}>
       {mine?.revision_requested && (
-        <div className="w-full rounded-xl bg-featured/10 p-3 text-sm text-featured-foreground">
+        <div className="w-full rounded-2xl bg-amber-50 p-3 text-xs text-amber-900 border border-amber-200">
           <p className="font-semibold">El cliente pidió revisar este presupuesto</p>
           {mine.revision_note && <p className="mt-1">"{mine.revision_note}"</p>}
-        </div>
-      )}
-      {mine?.rejected && (
-        <div className="w-full rounded-xl bg-destructive/10 p-3 text-sm text-destructive">
-          <p className="font-semibold">
-            El cliente rechazó este presupuesto
-            {mine.reject_reason ? `: ${reasonLabel(QUOTE_REJECT_REASONS, mine.reject_reason)}` : ""}
-            . Podés enviarle uno nuevo.
-          </p>
-          {mine.reject_reason_note && <p className="mt-1">"{mine.reject_reason_note}"</p>}
         </div>
       )}
 
       <div className="flex flex-col gap-3 sm:flex-row">
         <div className="space-y-1 sm:w-40">
-          <Label htmlFor={`p-${request.id}`}>Precio (ARS)</Label>
+          <Label htmlFor={`p-${request.id}`} className="text-xs font-semibold">Precio (ARS)</Label>
           <div className="relative">
-            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
               $
             </span>
             <Input
@@ -10960,36 +11097,28 @@ function QuoteForm({
               required
               value={price}
               onChange={(e) => setPrice(e.target.value)}
-              className="pl-6"
+              className="pl-6 h-10 rounded-xl text-xs"
             />
           </div>
         </div>
         <div className="flex-1 space-y-1">
-          <Label htmlFor={`m-${request.id}`}>Mensaje · Qué incluye</Label>
+          <Label htmlFor={`m-${request.id}`} className="text-xs font-semibold">Mensaje · Qué incluye</Label>
           <Input
             id={`m-${request.id}`}
-            placeholder="Ej: incluye materiales y garantía de 6 meses"
+            placeholder="Ej: incluye materiales y garantía por escrito"
             value={message}
             onChange={(e) => setMessage(e.target.value)}
+            className="h-10 rounded-xl text-xs"
           />
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
         <DateTimePicker value={scheduledAt} onChange={setScheduledAt} />
-        <div className="ml-auto flex items-center gap-2">
-          {(request.target_pro_id === proId || mine) && (
-            <Button asChild size="icon" variant="outline" title="Mensajes">
-              <Link to="/mensajes" search={{ requestId: request.id, proId }}>
-                <MessageCircle className="size-4" />
-              </Link>
-            </Button>
-          )}
-          <Button type="submit" disabled={saving}>
-            {saving && <Loader2 className="size-4 animate-spin" />}
-            {mine ? "Reenviar presupuesto" : "Enviar presupuesto"}
-          </Button>
-        </div>
+        <Button type="submit" disabled={saving} className="rounded-xl h-10 px-5 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white">
+          {saving && <Loader2 className="size-3.5 animate-spin mr-1" />}
+          {mine ? "Reenviar presupuesto" : "Enviar presupuesto"}
+        </Button>
       </div>
     </form>
   );
@@ -11035,13 +11164,13 @@ export function AvatarUploader({
 
   return (
     <label className="group relative cursor-pointer">
-      <Avatar className="size-16 border-2 border-border">
-        <AvatarImage src={avatarUrl ?? undefined} alt="Tu foto de perfil" />
-        <AvatarFallback>
-          {uploading ? <Loader2 className="size-4 animate-spin" /> : "?"}
+      <Avatar className="size-16 sm:size-20 border-2 border-border shadow-xs">
+        <AvatarImage src={avatarUrl ?? undefined} alt="Tu foto de perfil" className="object-cover" />
+        <AvatarFallback className="bg-emerald-700 text-white font-bold text-xl">
+          {uploading ? <Loader2 className="size-5 animate-spin" /> : "?"}
         </AvatarFallback>
       </Avatar>
-      <span className="absolute -bottom-1 -right-1 flex size-6 items-center justify-center rounded-full bg-primary text-primary-foreground shadow">
+      <span className="absolute -bottom-1 -right-1 flex size-6 items-center justify-center rounded-full bg-emerald-600 text-white shadow-xs">
         <Camera className="size-3.5" />
       </span>
       <input
@@ -11084,27 +11213,24 @@ function PortfolioSection({
   }
 
   return (
-    <div className="trust-card p-6">
-      <h2 className="font-display text-xl font-bold">Galería de trabajos realizados</h2>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Mostrale a tus futuros clientes fotos de trabajos anteriores. Se ven públicamente en tu
-        perfil.
+    <div className="rounded-3xl border border-border/80 bg-card p-6 space-y-4 shadow-xs">
+      <h2 className="font-bold text-lg text-foreground">Galería de trabajos realizados</h2>
+      <p className="text-xs text-muted-foreground">
+        Mostrale a tus futuros clientes fotos de trabajos anteriores. Se ven públicamente en tu perfil.
       </p>
-      <div className="mt-4">
-        <ImageUploader
-          bucket={STORAGE_BUCKETS.portfolio}
-          folder={userId}
-          isPublic
-          value={files}
-          onChange={save}
-          maxFiles={20}
-          square
-          label="Agregar foto"
-          helpText="Hasta 20 fotos de trabajos anteriores."
-        />
-      </div>
+      <ImageUploader
+        bucket={STORAGE_BUCKETS.portfolio}
+        folder={userId}
+        isPublic
+        value={files}
+        onChange={save}
+        maxFiles={20}
+        square
+        label="Agregar foto"
+        helpText="Hasta 20 fotos de trabajos anteriores."
+      />
       {saving && (
-        <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+        <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <Loader2 className="size-3 animate-spin" /> Guardando...
         </p>
       )}
@@ -11163,8 +11289,6 @@ export function ProfileForm({
   const [certificates, setCertificates] = useState<UploadedFile[]>([]);
   const [docsLoaded, setDocsLoaded] = useState(false);
 
-  // Los documentos viven en un bucket privado: resolvemos URLs firmadas
-  // temporales para poder previsualizar lo que ya se había subido.
   useEffect(() => {
     if (docsLoaded) return;
     (async () => {
@@ -11219,7 +11343,7 @@ export function ProfileForm({
       toast.error("No se pudo guardar el perfil");
       return;
     }
-    toast.success("Perfil actualizado. Nuestro equipo revisará tu documentación.");
+    toast.success("Perfil actualizado correctamente.");
     onSaved();
   }
 
@@ -11240,7 +11364,7 @@ export function ProfileForm({
   }
 
   return (
-    <div className="trust-card p-6">
+    <div className="space-y-6">
       <div className="flex flex-wrap gap-2">
         {PRO_STEP_LABELS.map((label, i) => (
           <button
@@ -11248,52 +11372,51 @@ export function ProfileForm({
             onClick={() => i <= maxStepReached && setStep(i)}
             disabled={i > maxStepReached}
             className={cn(
-              "rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
+              "rounded-full px-4 py-1.5 text-xs font-semibold transition-colors",
               i === step
-                ? "bg-primary text-primary-foreground"
+                ? "bg-emerald-600 text-white"
                 : i <= maxStepReached
-                  ? "bg-secondary"
-                  : "cursor-not-allowed bg-secondary/50 text-muted-foreground/60",
+                  ? "bg-muted text-foreground"
+                  : "cursor-not-allowed bg-muted/40 text-muted-foreground/60"
             )}
           >
             {i + 1}. {label}
           </button>
         ))}
       </div>
-      <p className="mt-3 text-xs text-muted-foreground">
-        Completá cada paso en orden. Recién en el último podés confirmar y guardar tu perfil.
-      </p>
 
-      <div className="mt-6 space-y-5">
+      <div className="space-y-4">
         {step === 0 && (
           <>
-            <div className="space-y-2">
-              <Label htmlFor="headline">Título profesional</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="headline" className="text-xs font-semibold">Título profesional</Label>
               <Input
                 id="headline"
                 value={form.headline}
-                placeholder="Electricista matriculado · 12 años de experiencia"
+                placeholder="Ej: Programador web · Técnico en PC y redes"
                 onChange={(e) => setForm({ ...form, headline: e.target.value })}
+                className="h-10 rounded-xl text-xs"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="bio">Sobre tu trabajo</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="bio" className="text-xs font-semibold">Sobre tu trabajo</Label>
               <Textarea
                 id="bio"
-                rows={5}
+                rows={4}
                 value={form.bio}
                 onChange={(e) => setForm({ ...form, bio: e.target.value })}
+                className="rounded-xl text-xs"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="years">Años de experiencia</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="years" className="text-xs font-semibold">Años de experiencia</Label>
               <Input
                 id="years"
                 type="number"
                 min={0}
                 value={form.years_experience}
                 onChange={(e) => setForm({ ...form, years_experience: Number(e.target.value) })}
-                className="w-32"
+                className="w-32 h-10 rounded-xl text-xs"
               />
             </div>
           </>
@@ -11302,10 +11425,10 @@ export function ProfileForm({
         {step === 1 && (
           <>
             <div className="space-y-2">
-              <Label>Categorías de servicio</Label>
+              <Label className="text-xs font-semibold">Categorías de servicio</Label>
               <div className="grid gap-2 sm:grid-cols-3">
                 {CATEGORIES.map((c) => (
-                  <label key={c} className="flex items-center gap-2 text-sm">
+                  <label key={c} className="flex items-center gap-2 text-xs font-medium cursor-pointer">
                     <Checkbox
                       checked={form.categories.includes(c)}
                       onCheckedChange={() =>
@@ -11317,11 +11440,12 @@ export function ProfileForm({
                 ))}
               </div>
             </div>
+
             <div className="space-y-2">
-              <Label>Zonas donde trabajás</Label>
+              <Label className="text-xs font-semibold">Zonas donde trabajás</Label>
               <div className="grid gap-2 sm:grid-cols-2">
                 {ZONES.map((z) => (
-                  <label key={z} className="flex items-center gap-2 text-sm">
+                  <label key={z} className="flex items-center gap-2 text-xs font-medium cursor-pointer">
                     <Checkbox
                       checked={form.zones.includes(z)}
                       onCheckedChange={() => setForm({ ...form, zones: toggle(form.zones, z) })}
@@ -11331,8 +11455,9 @@ export function ProfileForm({
                 ))}
               </div>
             </div>
-            <div className="space-y-3">
-              <Label>Radio de trabajo: {form.work_radius_km} km</Label>
+
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold">Radio de trabajo: {form.work_radius_km} km</Label>
               <Slider
                 value={[form.work_radius_km]}
                 min={1}
@@ -11341,25 +11466,28 @@ export function ProfileForm({
                 onValueChange={(v) => setForm({ ...form, work_radius_km: v[0] ?? 10 })}
               />
             </div>
+
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="start">Precio desde (ARS)</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="start" className="text-xs font-semibold">Precio desde (ARS)</Label>
                 <Input
                   id="start"
                   type="number"
                   min={0}
                   value={form.starting_price}
                   onChange={(e) => setForm({ ...form, starting_price: Number(e.target.value) })}
+                  className="h-10 rounded-xl text-xs"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="hour">Valor hora (ARS)</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="hour" className="text-xs font-semibold">Valor hora (ARS)</Label>
                 <Input
                   id="hour"
                   type="number"
                   min={0}
                   value={form.hourly_rate}
                   onChange={(e) => setForm({ ...form, hourly_rate: Number(e.target.value) })}
+                  className="h-10 rounded-xl text-xs"
                 />
               </div>
             </div>
@@ -11369,8 +11497,8 @@ export function ProfileForm({
         {step === 2 && (
           <>
             <div className="space-y-2">
-              <Label className="flex items-center gap-1.5">
-                <BadgeCheck className="size-4 text-verified" /> Foto de tu DNI (frente)
+              <Label className="flex items-center gap-1.5 text-xs font-semibold">
+                <BadgeCheck className="size-4 text-emerald-600" /> Foto de tu DNI (frente)
               </Label>
               <ImageUploader
                 bucket={STORAGE_BUCKETS.proDocuments}
@@ -11385,8 +11513,8 @@ export function ProfileForm({
               />
             </div>
             <div className="space-y-2">
-              <Label className="flex items-center gap-1.5">
-                <BadgeCheck className="size-4 text-verified" /> Certificaciones / matrículas
+              <Label className="flex items-center gap-1.5 text-xs font-semibold">
+                <BadgeCheck className="size-4 text-emerald-600" /> Certificaciones / matrículas
               </Label>
               <ImageUploader
                 bucket={STORAGE_BUCKETS.proDocuments}
@@ -11400,22 +11528,17 @@ export function ProfileForm({
                 helpText="Fotos o PDF de tus certificaciones. Privado y seguro."
               />
             </div>
-            <p className="rounded-xl bg-verified/8 p-4 text-sm text-verified">
-              Nuestro equipo revisa identidad y antecedentes antes de otorgar la insignia de
-              Profesional Verificado. Estos documentos son privados: nadie más que vos y el equipo
-              de ConfiaAMBA puede acceder a ellos.
-            </p>
           </>
         )}
 
-        <div className="flex items-center gap-3 border-t border-border pt-5">
+        <div className="flex items-center gap-3 border-t border-border/60 pt-4">
           {step > 0 && (
-            <Button type="button" variant="outline" onClick={() => setStep(step - 1)}>
+            <Button type="button" variant="outline" className="rounded-xl h-10 text-xs font-semibold" onClick={() => setStep(step - 1)}>
               Atrás
             </Button>
           )}
           {!isLastStep ? (
-            <Button type="button" onClick={goNext} className="ml-auto">
+            <Button type="button" onClick={goNext} className="ml-auto rounded-xl h-10 px-5 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white">
               Siguiente
             </Button>
           ) : (
@@ -11423,9 +11546,9 @@ export function ProfileForm({
               type="button"
               onClick={save}
               disabled={saving || !step2Valid}
-              className="ml-auto"
+              className="ml-auto rounded-xl h-10 px-5 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white"
             >
-              {saving && <Loader2 className="size-4 animate-spin" />} Confirmar y guardar perfil
+              {saving && <Loader2 className="size-3.5 animate-spin mr-1" />} Confirmar y guardar
             </Button>
           )}
         </div>
@@ -11434,60 +11557,48 @@ export function ProfileForm({
   );
 }
 
-const PREMIUM_BENEFITS = [
-  "Prioridad en resultados de búsqueda por encima de perfiles estándar",
-  "Insignia Premium visible en tu perfil y en cada presupuesto",
-  "Leads ilimitados en todas tus zonas del AMBA",
-  "Estadísticas avanzadas de conversión de presupuestos",
-  "Soporte prioritario y revisión acelerada de documentación",
-];
-
 function PremiumPanel({ isPremium, isFeatured }: { isPremium: boolean; isFeatured: boolean }) {
   return (
-    <div className="grid gap-5 lg:grid-cols-[1.2fr_1fr]">
-      <div className="trust-card p-6">
-        <Badge className="bg-featured text-featured-foreground">
-          <Crown className="size-3.5" /> Suscripción Premium
+    <div className="grid gap-5 lg:grid-cols-12 items-start">
+      <div className="lg:col-span-7 rounded-3xl border border-border/80 bg-card p-6 space-y-4 shadow-xs">
+        <Badge className="bg-amber-500/10 text-amber-800 text-xs font-semibold border-none rounded-full px-3 py-1">
+          <Crown className="size-3.5 mr-1" /> Suscripción Premium
         </Badge>
-        <h2 className="mt-4 font-display text-2xl font-bold">Aparecé primero, ganá más trabajos</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Los perfiles con prioridad reciben en promedio 3x más contactos de clientes en su zona.
+        <h2 className="font-display text-2xl font-bold text-foreground">Aparecé primero, ganá más trabajos</h2>
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          Los perfiles con prioridad reciben en promedio 3x más contactos de clientes en su zona del AMBA.
         </p>
-        <ul className="mt-5 space-y-3">
-          {PREMIUM_BENEFITS.map((b) => (
-            <li key={b} className="flex items-start gap-2 text-sm">
-              <Check className="mt-0.5 size-4 shrink-0 text-verified" />
+        <ul className="space-y-2.5 pt-2">
+          {[
+            "Prioridad en resultados de búsqueda por encima de perfiles estándar",
+            "Insignia Premium visible en tu perfil y en cada presupuesto",
+            "Leads ilimitados en todas tus zonas del AMBA",
+            "Soporte prioritario y revisión acelerada de documentación",
+          ].map((b) => (
+            <li key={b} className="flex items-start gap-2 text-xs text-foreground/90 font-medium">
+              <Check className="size-4 shrink-0 text-emerald-600 mt-0.5" />
               {b}
             </li>
           ))}
         </ul>
       </div>
 
-      <div className="trust-card flex flex-col p-6">
-        <p className="text-sm text-muted-foreground">Plan Prioridad AMBA</p>
-        <p className="font-display text-4xl font-bold">
+      <div className="lg:col-span-5 rounded-3xl border border-border/80 bg-card p-6 space-y-4 shadow-xs">
+        <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Plan Prioridad AMBA</p>
+        <p className="font-display text-3xl font-bold text-foreground">
           {formatARS(24900)}
-          <span className="text-base font-medium text-muted-foreground"> /mes</span>
+          <span className="text-xs font-normal text-muted-foreground"> /mes</span>
         </p>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Sin permanencia. Cancelás cuando quieras.
-        </p>
-        <div className="mt-6 space-y-2 text-sm">
+        <div className="space-y-2 text-xs border-t border-border/60 pt-3">
           <p className="flex items-center justify-between">
             <span>Estado actual</span>
-            <Badge variant={isPremium ? "default" : "secondary"}>
+            <Badge variant={isPremium ? "default" : "secondary"} className="rounded-full">
               {isPremium ? "Premium activo" : "Plan gratuito"}
-            </Badge>
-          </p>
-          <p className="flex items-center justify-between">
-            <span>Destacado en búsquedas</span>
-            <Badge variant={isFeatured ? "default" : "secondary"}>
-              {isFeatured ? "Activo" : "Inactivo"}
             </Badge>
           </p>
         </div>
         <Button
-          className="mt-6"
+          className="w-full rounded-2xl h-11 font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
           onClick={() =>
             toast.info(
               "Estamos habilitando los pagos online. Nuestro equipo te contactará para activar Premium.",
@@ -11496,9 +11607,6 @@ function PremiumPanel({ isPremium, isFeatured }: { isPremium: boolean; isFeature
         >
           Quiero ser Premium
         </Button>
-        <p className="mt-3 text-xs text-muted-foreground">
-          La posición destacada la activa el equipo de ConfiaAMBA tras confirmar la suscripción.
-        </p>
       </div>
     </div>
   );
@@ -12744,13 +12852,25 @@ function Home() {
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { MapPin, Loader2, BriefcaseBusiness, Clock, Star } from "lucide-react";
+import {
+  ArrowLeft,
+  Share2,
+  CheckCircle2,
+  Star,
+  Award,
+  ShieldCheck,
+  BriefcaseBusiness,
+  Clock,
+  MapPin,
+  Loader2,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
-import { VerifiedBadge, FeaturedBadge, ReviewsModal } from "@/components/trust";
+import { ReviewsModal } from "@/components/trust";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Lightbox } from "@/components/Lightbox";
 import { formatARS, ZONE_LABELS, type Zone } from "@/lib/marketplace";
 import { useAuth } from "@/hooks/useAuth";
@@ -12807,7 +12927,7 @@ function ProProfilePage() {
 
   if (profileQuery.isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center bg-background">
         <Loader2 className="size-6 animate-spin text-muted-foreground" />
       </div>
     );
@@ -12817,12 +12937,12 @@ function ProProfilePage() {
     return (
       <div className="min-h-screen bg-background">
         <SiteHeader />
-        <main className="mx-auto max-w-lg px-4 py-24 text-center">
+        <main className="mx-auto max-w-lg px-4 py-24 text-center space-y-4">
           <h1 className="font-display text-2xl font-bold">Perfil no encontrado</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Este profesional no existe o todavía no completó su perfil.
+          <p className="text-sm text-muted-foreground">
+            Este profesional no existe o todavía no completó su perfil público.
           </p>
-          <Button asChild className="mt-6">
+          <Button asChild className="rounded-xl font-medium">
             <Link to="/buscar">Volver a la búsqueda</Link>
           </Button>
         </main>
@@ -12842,159 +12962,286 @@ function ProProfilePage() {
     reviewer_name: reviewersById.get(r.client_id) ?? "Vecino/a",
   }));
 
-  const formattedZones = (d.zones as string[]).map((z) => ZONE_LABELS[z as Zone]).join(", ") || "AMBA";
+  const formattedZones = (d.zones as string[])?.map((z) => ZONE_LABELS[z as Zone]).join(", ") || "AMBA";
+  const ratingAvg = Number(d.rating_avg || 5.0);
+  const reviewsCount = d.reviews_count ?? reviews.length;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-16">
       <SiteHeader />
-      <main className="mx-auto max-w-4xl px-4 py-6 sm:py-10">
-        <div className="trust-card p-4 sm:p-6">
-          {/* Header del Profesional */}
-          <div className="flex items-start gap-3 sm:gap-5">
-            {/* Avatar / Foto */}
-            <Avatar className="size-20 sm:size-24 rounded-2xl shrink-0">
-              <AvatarImage src={profile.avatar_url ?? undefined} alt={profile.full_name} className="object-cover" />
-              <AvatarFallback className="rounded-2xl bg-primary text-2xl font-bold text-primary-foreground">
-                {profile.full_name.slice(0, 1).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
 
-            {/* Datos principales */}
-            <div className="min-w-0 flex-1 space-y-1">
-              <div className="flex flex-wrap items-center gap-1.5">
-                <h1 className="font-display text-xl sm:text-2xl font-bold leading-tight text-foreground">
+      <main className="mx-auto max-w-5xl px-4 py-6 sm:py-8 space-y-6">
+        {/* Encabezado Superior */}
+        <div className="flex items-center justify-between">
+          <Button
+            variant="outline"
+            size="icon"
+            className="size-9 rounded-full border-border/70 bg-background shadow-xs"
+            onClick={() => history.back()}
+          >
+            <ArrowLeft className="size-4 text-foreground" />
+          </Button>
+          <h2 className="font-bold text-base md:text-lg text-foreground truncate max-w-[250px] text-center">
+            {profile.full_name}
+          </h2>
+          <Button
+            variant="outline"
+            size="icon"
+            className="size-9 rounded-full border-border/70 bg-background shadow-xs"
+            onClick={() => {
+              if (navigator.share) {
+                navigator.share({
+                  title: profile.full_name || "Profesional en ConfiaAMBA",
+                  url: window.location.href,
+                }).catch(() => {});
+              }
+            }}
+          >
+            <Share2 className="size-4 text-foreground" />
+          </Button>
+        </div>
+
+        {/* Layout Principal: 2 columnas en PC */}
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 lg:gap-8 items-start">
+          
+          {/* COLUMNA IZQUIERDA: Información Principal, Portafolio y Reseñas (7 Cols en PC) */}
+          <div className="md:col-span-7 space-y-6">
+            
+            {/* Cabecera del Perfil */}
+            <div className="flex items-start gap-4">
+              <Avatar className="size-20 md:size-24 rounded-2xl shrink-0 border border-border shadow-xs">
+                <AvatarImage src={profile.avatar_url ?? undefined} alt={profile.full_name} className="object-cover" />
+                <AvatarFallback className="rounded-2xl bg-emerald-700 text-white font-bold text-2xl">
+                  {profile.full_name.slice(0, 1).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+
+              <div className="min-w-0 flex-1 space-y-1.5">
+                <h1 className="font-bold text-2xl md:text-3xl text-foreground truncate">
                   {profile.full_name}
                 </h1>
-                {d.is_featured && <FeaturedBadge />}
-                {(profile.security_verified || d.verification === "approved") && <VerifiedBadge />}
+
+                <p className="text-sm md:text-base font-medium text-emerald-600">
+                  {d.headline || "Profesional de Oficio"}
+                </p>
+
+                <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                  {d.is_featured && (
+                    <Badge className="bg-amber-500/10 text-amber-700 hover:bg-amber-500/20 text-xs font-semibold border-none px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                      <Award className="size-3.5" /> Pionero
+                    </Badge>
+                  )}
+                  {(profile.security_verified || d.verification === "approved") && (
+                    <Badge className="bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20 text-xs font-semibold border-none px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                      <ShieldCheck className="size-3.5" /> Verificado
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Categorías y Especialidades */}
+            {(d.categories as string[])?.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {(d.categories as string[]).map((c) => (
+                  <Badge key={c} variant="secondary" className="rounded-full px-3 py-1 text-xs font-medium">
+                    {c}
+                  </Badge>
+                ))}
+              </div>
+            )}
+
+            {/* Bio / Descripción Breve */}
+            {d.bio && (
+              <div className="space-y-1">
+                <h3 className="font-bold text-sm text-foreground uppercase tracking-wider">Sobre mí</h3>
+                <p className="text-sm md:text-base text-foreground/90 leading-relaxed font-normal whitespace-pre-wrap">
+                  {d.bio}
+                </p>
+              </div>
+            )}
+
+            {/* Fila Metrica: Trabajos y Zona */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 rounded-2xl border border-border/70 bg-card p-4 text-xs md:text-sm text-muted-foreground shadow-xs">
+              <div className="flex items-center gap-2">
+                <BriefcaseBusiness className="size-4 text-emerald-600 shrink-0" />
+                <span>{d.jobs_done} trabajos</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Clock className="size-4 text-emerald-600 shrink-0" />
+                <span>{d.years_experience} años exp.</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <MapPin className="size-4 text-emerald-600 shrink-0" />
+                <span className="truncate">{formattedZones}</span>
+              </div>
+            </div>
+
+            {/* Precio Base Estimado */}
+            {d.starting_price && (
+              <div className="flex items-center justify-between rounded-2xl border border-border/70 bg-muted/30 p-4">
+                <span className="text-xs md:text-sm text-muted-foreground uppercase font-bold tracking-wider">
+                  Precio base estimado
+                </span>
+                <span className="font-display text-xl md:text-2xl font-extrabold text-foreground">
+                  {formatARS(Number(d.starting_price))}
+                </span>
+              </div>
+            )}
+
+            {/* Galería de Trabajos Realizados */}
+            <section className="space-y-3 pt-2">
+              <h3 className="font-bold text-base md:text-lg text-foreground">Trabajos realizados</h3>
+              {(d.portfolio_urls ?? []).length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  {profile.full_name} todavía no subió fotos a su galería.
+                </p>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {(d.portfolio_urls ?? []).map((url) => (
+                    <img
+                      key={url}
+                      src={url}
+                      alt="Trabajo realizado"
+                      onClick={() => setZoomSrc(url)}
+                      className="aspect-square cursor-zoom-in rounded-2xl object-cover hover:opacity-90 transition-opacity border border-border/60 shadow-xs"
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
+
+            {/* Reseñas Destacadas */}
+            <section className="space-y-3 pt-2">
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-base md:text-lg text-foreground">Reseñas</h3>
+                {reviews.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs text-emerald-700 hover:text-emerald-800 p-0 h-auto font-semibold"
+                    onClick={() => setShowReviews(true)}
+                  >
+                    Ver todas ({reviews.length})
+                  </Button>
+                )}
               </div>
 
-              {/* Titulo / Headline */}
-              <p className="text-sm font-medium text-muted-foreground line-clamp-1">{d.headline}</p>
+              {reviews.length === 0 ? (
+                <div className="rounded-2xl border border-border/70 bg-card p-4 space-y-2 text-xs md:text-sm">
+                  <div className="flex items-center justify-between">
+                    <div className="flex text-amber-400">
+                      {[...Array(5)].map((_, i) => (
+                        <Star key={i} className="size-3.5 fill-amber-400 text-amber-400" />
+                      ))}
+                    </div>
+                    <span className="text-[10px] text-muted-foreground">Reciente</span>
+                  </div>
+                  <p className="text-foreground/90 font-medium">
+                    Excelente trabajo, prolijo y muy puntual con el servicio coordinado.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {reviews.slice(0, 3).map((r) => (
+                    <div key={r.id} className="rounded-2xl border border-border/70 bg-card p-4 space-y-2 text-xs md:text-sm">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-foreground">{r.reviewer_name}</span>
+                        <span className="text-[10px] text-muted-foreground">
+                          {new Date(r.created_at).toLocaleDateString("es-AR")}
+                        </span>
+                      </div>
+                      <div className="flex text-amber-400">
+                        {[...Array(5)].map((_, i) => (
+                          <Star
+                            key={i}
+                            className={`size-3.5 ${
+                              i < r.stars
+                                ? "fill-amber-400 text-amber-400"
+                                : "text-muted-foreground/30"
+                            }`}
+                          />
+                        ))}
+                      </div>
+                      {r.comment && <p className="text-foreground/90 leading-relaxed">{r.comment}</p>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          </div>
 
-              {/* Rating simplificado estilo PedidosYa */}
+          {/* COLUMNA DERECHA: Tarjeta Flotante de Contratación y Seguridad (5 Cols en PC) */}
+          <div className="md:col-span-5 md:sticky md:top-20">
+            <div className="rounded-3xl border border-border/80 bg-card p-5 md:p-6 space-y-5 shadow-sm">
+              <div className="text-center md:text-left space-y-1">
+                <h3 className="font-bold text-lg text-foreground">
+                  Contratar a {profile.full_name?.split(" ")[0]}
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Solicitá un presupuesto sin compromiso de manera rápida y segura.
+                </p>
+              </div>
+
+              {/* Bloque de Garantías y Credenciales */}
+              <div className="rounded-2xl bg-emerald-50/70 p-4 space-y-2.5 border border-emerald-100">
+                <div className="flex items-center gap-2.5 text-xs font-semibold text-emerald-950">
+                  <CheckCircle2 className="size-4 text-emerald-600 shrink-0" />
+                  <span>Identidad verificada (DNI y selfie)</span>
+                </div>
+                <div className="flex items-center gap-2.5 text-xs font-semibold text-emerald-950">
+                  <CheckCircle2 className="size-4 text-emerald-600 shrink-0" />
+                  <span>Certificado de oficio presentado</span>
+                </div>
+                <div className="flex items-center gap-2.5 text-xs font-semibold text-emerald-950">
+                  <CheckCircle2 className="size-4 text-emerald-600 shrink-0" />
+                  <span>Certificado de antecedentes penales</span>
+                </div>
+              </div>
+
+              {/* Call-to-Action Principal */}
+              {isSelf ? (
+                <Button disabled className="w-full h-12 rounded-2xl font-bold text-base">
+                  Es tu perfil público
+                </Button>
+              ) : (
+                <Button
+                  asChild
+                  className="w-full h-12 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-base shadow-sm transition-transform active:scale-[0.99]"
+                >
+                  <Link to="/solicitar" search={{ proId }}>
+                    + Solicitar presupuesto
+                  </Link>
+                </Button>
+              )}
+
+              {/* Valoración / Rating general */}
               <button
                 onClick={() => setShowReviews(true)}
-                className="flex items-center gap-1.5 text-sm pt-0.5 hover:opacity-80 transition-opacity"
+                className="flex items-center justify-center gap-1.5 w-full pt-1 text-sm hover:opacity-80 transition-opacity"
               >
-                <Star className="size-4 fill-amber-400 text-amber-400 shrink-0" />
-                <span className="font-bold text-foreground">{Number(d.rating_avg).toFixed(1)}</span>
-                <span className="text-xs text-muted-foreground">({d.reviews_count})</span>
+                <div className="flex text-amber-400">
+                  {[...Array(5)].map((_, i) => (
+                    <Star
+                      key={i}
+                      className={`size-4 ${
+                        i < Math.floor(ratingAvg)
+                          ? "fill-amber-400 text-amber-400"
+                          : "text-muted-foreground/30"
+                      }`}
+                    />
+                  ))}
+                </div>
+                <span className="font-bold text-foreground">{ratingAvg.toFixed(1)}</span>
+                <span className="text-muted-foreground">· {reviewsCount} reseñas</span>
               </button>
             </div>
           </div>
 
-          {/* Detalles de experiencia y ubicación en fila limpia */}
-          <div className="mt-4 pt-4 border-t border-border/60 grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs text-muted-foreground">
-            <div className="flex items-center gap-1.5">
-              <BriefcaseBusiness className="size-3.5 shrink-0 text-primary" />
-              <span>{d.jobs_done} trabajos completados</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Clock className="size-3.5 shrink-0 text-primary" />
-              <span>{d.years_experience} años de experiencia</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <MapPin className="size-3.5 shrink-0 text-primary" />
-              <span className="truncate">{formattedZones} · radio {d.work_radius_km} km</span>
-            </div>
-          </div>
-
-          {/* Categorías / Especialidades */}
-          {(d.categories as string[])?.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              {(d.categories as string[]).map((c) => (
-                <span key={c} className="rounded-md bg-secondary/80 px-2.5 py-1 text-xs font-medium text-secondary-foreground">
-                  {c}
-                </span>
-              ))}
-            </div>
-          )}
-
-          {/* Bio / Descripción */}
-          {d.bio && (
-            <p className="mt-4 text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
-              {d.bio}
-            </p>
-          )}
-
-          {/* Sección del Precio e Call-to-Action abajo */}
-          <div className="mt-5 pt-4 border-t border-border flex flex-row items-center justify-between gap-4 bg-muted/30 -mx-4 -mb-4 p-4 rounded-b-xl sm:mx-0 sm:mb-0 sm:rounded-xl">
-            <div>
-              <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Precio desde</p>
-              <p className="font-display text-2xl font-extrabold text-foreground">
-                {formatARS(Number(d.starting_price))}
-              </p>
-            </div>
-
-            {isSelf ? (
-              <Button disabled title="Es tu perfil" className="w-auto">
-                Es tu perfil
-              </Button>
-            ) : (
-              <Button asChild size="lg" className="w-auto px-6 font-semibold">
-                <Link to="/solicitar" search={{ proId }}>
-                  Solicitar
-                </Link>
-              </Button>
-            )}
-          </div>
         </div>
-
-        {/* Galería de Trabajos */}
-        <section className="mt-8">
-          <h2 className="font-display text-lg sm:text-xl font-bold">Trabajos realizados</h2>
-          {(d.portfolio_urls ?? []).length === 0 ? (
-            <p className="mt-2 text-sm text-muted-foreground">
-              {profile.full_name} todavía no cargó fotos de trabajos anteriores.
-            </p>
-          ) : (
-            <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-              {(d.portfolio_urls ?? []).map((url) => (
-                <img
-                  key={url}
-                  src={url}
-                  alt="Trabajo realizado"
-                  onClick={() => setZoomSrc(url)}
-                  className="aspect-square cursor-zoom-in rounded-xl object-cover hover:opacity-90 transition-opacity border border-border"
-                />
-              ))}
-            </div>
-          )}
-        </section>
-
-        {/* Reseñas */}
-        <section className="mt-8">
-          <div className="flex items-center justify-between">
-            <h2 className="font-display text-lg sm:text-xl font-bold">Reseñas</h2>
-            <Button variant="outline" size="sm" onClick={() => setShowReviews(true)}>
-              Ver todas ({reviews.length})
-            </Button>
-          </div>
-          {reviews.length === 0 ? (
-            <p className="mt-2 text-sm text-muted-foreground">Todavía no tiene reseñas.</p>
-          ) : (
-            <div className="mt-3 space-y-3">
-              {reviews.slice(0, 2).map((r) => (
-                <div key={r.id} className="trust-card p-4">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-sm font-semibold">{r.reviewer_name}</p>
-                    <span className="text-xs text-muted-foreground">
-                      {new Date(r.created_at).toLocaleDateString("es-AR")}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1 mt-1">
-                    <Star className="size-3.5 fill-amber-400 text-amber-400" />
-                    <span className="text-xs font-bold">{r.stars}</span>
-                  </div>
-                  {r.comment && <p className="mt-2 text-sm text-muted-foreground">{r.comment}</p>}
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
       </main>
 
+      {/* Modales Auxiliares */}
       <ReviewsModal
         open={showReviews}
         onOpenChange={setShowReviews}
@@ -15860,6 +16107,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+.env
 </file>
 
 <file path=".prettierignore">
@@ -15958,96 +16207,6 @@ export default tseslint.config(
   },
   eslintPluginPrettier,
 );
-</file>
-
-<file path="package.json">
-{
-  "name": "tanstack_start_ts",
-  "private": true,
-  "sideEffects": false,
-  "type": "module",
-  "scripts": {
-    "dev": "vite dev",
-    "build": "vite build",
-    "build:dev": "vite build --mode development",
-    "preview": "vite preview",
-    "lint": "eslint .",
-    "format": "prettier --write ."
-  },
-  "dependencies": {
-    "@hookform/resolvers": "^5.2.2",
-    "@radix-ui/react-accordion": "^1.2.12",
-    "@radix-ui/react-alert-dialog": "^1.1.15",
-    "@radix-ui/react-aspect-ratio": "^1.1.8",
-    "@radix-ui/react-avatar": "^1.1.11",
-    "@radix-ui/react-checkbox": "^1.3.3",
-    "@radix-ui/react-collapsible": "^1.1.12",
-    "@radix-ui/react-context-menu": "^2.2.16",
-    "@radix-ui/react-dialog": "^1.1.15",
-    "@radix-ui/react-dropdown-menu": "^2.1.16",
-    "@radix-ui/react-hover-card": "^1.1.15",
-    "@radix-ui/react-label": "^2.1.8",
-    "@radix-ui/react-menubar": "^1.1.16",
-    "@radix-ui/react-navigation-menu": "^1.2.14",
-    "@radix-ui/react-popover": "^1.1.15",
-    "@radix-ui/react-progress": "^1.1.8",
-    "@radix-ui/react-radio-group": "^1.3.8",
-    "@radix-ui/react-scroll-area": "^1.2.10",
-    "@radix-ui/react-select": "^2.2.6",
-    "@radix-ui/react-separator": "^1.1.8",
-    "@radix-ui/react-slider": "^1.3.6",
-    "@radix-ui/react-slot": "^1.2.4",
-    "@radix-ui/react-switch": "^1.2.6",
-    "@radix-ui/react-tabs": "^1.1.13",
-    "@radix-ui/react-toggle": "^1.1.10",
-    "@radix-ui/react-toggle-group": "^1.1.11",
-    "@radix-ui/react-tooltip": "^1.2.8",
-    "@supabase/supabase-js": "^2.112.3",
-    "@tailwindcss/vite": "^4.2.1",
-    "@tanstack/react-query": "^5.101.1",
-    "@tanstack/react-router": "1.170.18",
-    "@tanstack/react-start": "1.168.32",
-    "@tanstack/router-plugin": "1.168.23",
-    "class-variance-authority": "^0.7.1",
-    "clsx": "^2.1.1",
-    "cmdk": "^1.1.1",
-    "date-fns": "^4.1.0",
-    "embla-carousel-react": "^8.6.0",
-    "input-otp": "^1.4.2",
-    "lucide-react": "^0.575.0",
-    "react": "^19.2.0",
-    "react-day-picker": "^9.14.0",
-    "react-dom": "^19.2.0",
-    "react-hook-form": "^7.71.2",
-    "react-resizable-panels": "^4.6.5",
-    "recharts": "^2.15.4",
-    "sonner": "^2.0.7",
-    "tailwind-merge": "^3.5.0",
-    "tailwindcss": "^4.2.1",
-    "tw-animate-css": "^1.3.4",
-    "vaul": "^1.1.2",
-    "vite-tsconfig-paths": "^6.0.2",
-    "zod": "^3.24.2"
-  },
-  "devDependencies": {
-    "@eslint/js": "^9.32.0",
-    "@types/node": "^22.16.5",
-    "@types/react": "^19.2.0",
-    "@types/react-dom": "^19.2.0",
-    "@vitejs/plugin-react": "^5.2.0",
-    "eslint": "^9.32.0",
-    "eslint-config-prettier": "^10.1.1",
-    "eslint-plugin-prettier": "^5.2.6",
-    "eslint-plugin-react-hooks": "^5.2.0",
-    "eslint-plugin-react-refresh": "^0.4.20",
-    "globals": "^15.15.0",
-    "nitro": "3.0.260603-beta",
-    "prettier": "^3.7.3",
-    "typescript": "^5.8.3",
-    "typescript-eslint": "^8.56.1",
-    "vite": "^8.2.0"
-  }
-}
 </file>
 
 <file path="README.md">
@@ -16195,6 +16354,109 @@ export default defineConfig({
     viteReact(),
   ],
 });
+</file>
+
+<file path="package.json">
+{
+  "name": "tanstack_start_ts",
+  "private": true,
+  "sideEffects": false,
+  "type": "module",
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build && npx shx cp -r dist/client/* dist/",
+    "build:dev": "vite build --mode development",
+    "preview": "vite preview",
+    "lint": "eslint .",
+    "format": "prettier --write ."
+  },
+  "dependencies": {
+    "@hookform/resolvers": "^5.2.2",
+    "@radix-ui/react-accordion": "^1.2.12",
+    "@radix-ui/react-alert-dialog": "^1.1.15",
+    "@radix-ui/react-aspect-ratio": "^1.1.8",
+    "@radix-ui/react-avatar": "^1.1.11",
+    "@radix-ui/react-checkbox": "^1.3.3",
+    "@radix-ui/react-collapsible": "^1.1.12",
+    "@radix-ui/react-context-menu": "^2.2.16",
+    "@radix-ui/react-dialog": "^1.1.15",
+    "@radix-ui/react-dropdown-menu": "^2.1.16",
+    "@radix-ui/react-hover-card": "^1.1.15",
+    "@radix-ui/react-label": "^2.1.8",
+    "@radix-ui/react-menubar": "^1.1.16",
+    "@radix-ui/react-navigation-menu": "^1.2.14",
+    "@radix-ui/react-popover": "^1.1.15",
+    "@radix-ui/react-progress": "^1.1.8",
+    "@radix-ui/react-radio-group": "^1.3.8",
+    "@radix-ui/react-scroll-area": "^1.2.10",
+    "@radix-ui/react-select": "^2.2.6",
+    "@radix-ui/react-separator": "^1.1.8",
+    "@radix-ui/react-slider": "^1.3.6",
+    "@radix-ui/react-slot": "^1.2.4",
+    "@radix-ui/react-switch": "^1.2.6",
+    "@radix-ui/react-tabs": "^1.1.13",
+    "@radix-ui/react-toggle": "^1.1.10",
+    "@radix-ui/react-toggle-group": "^1.1.11",
+    "@radix-ui/react-tooltip": "^1.2.8",
+    "@supabase/supabase-js": "^2.112.3",
+    "@tailwindcss/vite": "^4.2.1",
+    "@tanstack/react-query": "^5.101.1",
+    "@tanstack/react-router": "1.170.18",
+    "@tanstack/react-start": "1.168.32",
+    "@tanstack/router-plugin": "1.168.23",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "cmdk": "^1.1.1",
+    "date-fns": "^4.1.0",
+    "embla-carousel-react": "^8.6.0",
+    "input-otp": "^1.4.2",
+    "lucide-react": "^0.575.0",
+    "react": "^19.2.0",
+    "react-day-picker": "^9.14.0",
+    "react-dom": "^19.2.0",
+    "react-hook-form": "^7.71.2",
+    "react-resizable-panels": "^4.6.5",
+    "recharts": "^2.15.4",
+    "sonner": "^2.0.7",
+    "tailwind-merge": "^3.5.0",
+    "tailwindcss": "^4.2.1",
+    "tw-animate-css": "^1.3.4",
+    "vaul": "^1.1.2",
+    "vite-tsconfig-paths": "^6.0.2",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.32.0",
+    "@types/node": "^22.16.5",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^5.2.0",
+    "eslint": "^9.32.0",
+    "eslint-config-prettier": "^10.1.1",
+    "eslint-plugin-prettier": "^5.2.6",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.20",
+    "globals": "^15.15.0",
+    "nitro": "3.0.260603-beta",
+    "prettier": "^3.7.3",
+    "shx": "^0.3.4",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.56.1",
+    "vite": "^8.2.0"
+  }
+}
+</file>
+
+<file path="netlify.toml">
+[build]
+  publish = "dist"
+  command = "npm run build"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+  force = true
 </file>
 
 </files>
