@@ -1,8 +1,7 @@
 [build]
-  publish = "dist/client"
+  publish = "dist"
   command = "npm run build"
 
-# Redirige todas las solicitudes de rutas al index.html de la carpeta client
 [[redirects]]
   from = "/*"
   to = "/index.html"
