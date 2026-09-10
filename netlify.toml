@@ -2,7 +2,9 @@
   publish = "dist/client"
   command = "npm run build"
 
+# Redirige todas las solicitudes de rutas al index.html de la carpeta client
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
+  force = true
