@@ -1,0 +1,1 @@
+revoke all on function public.grant_admin_for_designated_email() from public, anon, authenticated;
