@@ -1,28 +1,50 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Home, Wrench, ClipboardList, User } from "lucide-react";
-import { useAuth, dashboardPathFor } from "@/hooks/useAuth";
+import { Home, Wrench, ClipboardList, User, Briefcase, MessageCircle, ShieldCheck } from "lucide-react";
+import { useAuth, dashboardPathFor, type AppRole } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 
+type NavItem = { to: string; label: string; icon: typeof Home };
+
 /**
- * Navegación inferior fija, solo en mobile. Pensada para el flujo del
- * cliente (o visitante anónimo) — los profesionales y administradores ya
- * tienen su panel con tabs propias, así que no se las mostramos.
+ * Navegación inferior fija, solo en mobile. Cada rol ve sus propios accesos:
+ * el cliente navega el marketplace, el profesional su panel y mensajes, y el
+ * administrador su panel de control.
  */
-export function BottomNav() {
-  const { role } = useAuth();
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
+function itemsForRole(role: AppRole | null): NavItem[] {
+  if (role === "professional") {
+    return [
+      { to: "/pro", label: "Panel", icon: Briefcase },
+      { to: "/mensajes", label: "Mensajes", icon: MessageCircle },
+      { to: "/cuenta", label: "Mi perfil", icon: User },
+    ];
+  }
 
-  if (role === "professional" || role === "admin") return null;
+  if (role === "admin") {
+    return [
+      { to: "/admin", label: "Panel", icon: ShieldCheck },
+      { to: "/cuenta", label: "Mi perfil", icon: User },
+    ];
+  }
 
-  const items = [
+  // Cliente logueado o visitante anónimo.
+  return [
     { to: "/", label: "Inicio", icon: Home },
     { to: "/buscar", label: "Servicios", icon: Wrench },
     { to: dashboardPathFor(role) ?? "/cliente", label: "Pedidos", icon: ClipboardList },
     { to: "/cuenta", label: "Mi perfil", icon: User },
   ];
+}
+
+export function BottomNav() {
+  const { role } = useAuth();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const items = itemsForRole(role);
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 flex items-stretch border-t border-border bg-background/95 backdrop-blur-lg md:hidden">
+    <nav
+      className="fixed inset-x-0 bottom-0 z-40 flex items-stretch border-t border-border bg-background/95 backdrop-blur-lg [transform:translateZ(0)] md:hidden"
+      style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+    >
       {items.map((item) => {
         const active = pathname === item.to;
         const Icon = item.icon;

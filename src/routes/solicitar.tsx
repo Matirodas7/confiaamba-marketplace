@@ -63,7 +63,6 @@ function RequestPage() {
     address: "",
     zone: "" as Zone | "",
     neighborhood: "",
-    budget_hint: "",
   });
   const [photos, setPhotos] = useState<UploadedFile[]>([]);
 
@@ -126,7 +125,6 @@ function RequestPage() {
       description: form.description,
       address: `${form.address}${form.neighborhood ? `, ${form.neighborhood}` : ""}`,
       zone: form.zone as Zone,
-      budget_hint: form.budget_hint || null,
       target_pro_id: isTargeted ? proId : null,
       photos: photos.map((p) => p.url),
     });
@@ -268,19 +266,6 @@ function RequestPage() {
                     </Select>
                   )}
                 </div>
-
-                <div className="space-y-1.5">
-                  <Label htmlFor="budget" className="text-xs font-semibold">
-                    Presupuesto estimado (opcional)
-                  </Label>
-                  <Input
-                    id="budget"
-                    placeholder="Ej: hasta $150.000"
-                    value={form.budget_hint}
-                    onChange={(e) => setForm({ ...form, budget_hint: e.target.value })}
-                    className="h-11 rounded-xl text-sm"
-                  />
-                </div>
               </div>
 
               {/* Detalle del trabajo */}
@@ -409,7 +394,6 @@ function RequestPage() {
                     "Zona",
                     `${ZONE_LABELS[form.zone as Zone]}${form.neighborhood ? ` · ${form.neighborhood}` : ""}`,
                   ],
-                  ["Presupuesto estimado", form.budget_hint || "Sin definir"],
                   ["Fotos adjuntas", photos.length > 0 ? `${photos.length} foto(s)` : "Ninguna"],
                 ].map(([k, v]) => (
                   <div key={k} className="grid gap-1 p-4 sm:grid-cols-3">

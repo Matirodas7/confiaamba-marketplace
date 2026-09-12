@@ -49,11 +49,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setRole(null);
       return;
     }
-    const [{ data: p }, { data: r }] = await Promise.all([
+    const [{ data: p }, { data: priv }, { data: r }] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", userId).maybeSingle(),
+      supabase.from("profile_private_data").select("*").eq("id", userId).maybeSingle(),
       supabase.from("user_roles").select("role").eq("user_id", userId),
     ]);
-    setProfile((p as Profile) ?? null);
+    setProfile(p ? ({ ...p, ...(priv ?? {}) } as Profile) : null);
     const roles = (r ?? []).map((x) => x.role as AppRole);
     setRole(
       roles.includes("admin")

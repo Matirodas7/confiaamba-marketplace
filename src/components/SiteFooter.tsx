@@ -48,8 +48,18 @@ export function SiteFooter() {
           </ul>
         </div>
       </div>
-      <div className="border-t border-border py-6 text-center text-xs text-muted-foreground">
-        © {new Date().getFullYear()} ConfiaAMBA. Todos los derechos reservados.
+      <div className="border-t border-border py-6">
+        <div className="mx-auto flex max-w-6xl flex-col items-center gap-3 px-4 text-center text-xs text-muted-foreground sm:flex-row sm:justify-between sm:text-left">
+          <p>© {new Date().getFullYear()} ConfiaAMBA. Todos los derechos reservados.</p>
+          <div className="flex items-center gap-4">
+            <Link to="/terminos" className="hover:text-foreground hover:underline">
+              Términos y Condiciones
+            </Link>
+            <Link to="/privacidad" className="hover:text-foreground hover:underline">
+              Política de Privacidad
+            </Link>
+          </div>
+        </div>
       </div>
     </footer>
   );

@@ -14,7 +14,9 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as BuscarRouteImport } from './routes/buscar'
 import { Route as ComoFuncionaRouteImport } from './routes/como-funciona'
+import { Route as PrivacidadRouteImport } from './routes/privacidad'
 import { Route as SolicitarRouteImport } from './routes/solicitar'
+import { Route as TerminosRouteImport } from './routes/terminos'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedClienteRouteImport } from './routes/_authenticated/cliente'
 import { Route as AuthenticatedCuentaRouteImport } from './routes/_authenticated/cuenta'
@@ -46,9 +48,19 @@ const ComoFuncionaRoute = ComoFuncionaRouteImport.update({
   path: '/como-funciona',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PrivacidadRoute = PrivacidadRouteImport.update({
+  id: '/privacidad',
+  path: '/privacidad',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SolicitarRoute = SolicitarRouteImport.update({
   id: '/solicitar',
   path: '/solicitar',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TerminosRoute = TerminosRouteImport.update({
+  id: '/terminos',
+  path: '/terminos',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
@@ -87,7 +99,9 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/buscar': typeof BuscarRoute
   '/como-funciona': typeof ComoFuncionaRoute
+  '/privacidad': typeof PrivacidadRoute
   '/solicitar': typeof SolicitarRoute
+  '/terminos': typeof TerminosRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/cliente': typeof AuthenticatedClienteRoute
   '/cuenta': typeof AuthenticatedCuentaRoute
@@ -100,7 +114,9 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/buscar': typeof BuscarRoute
   '/como-funciona': typeof ComoFuncionaRoute
+  '/privacidad': typeof PrivacidadRoute
   '/solicitar': typeof SolicitarRoute
+  '/terminos': typeof TerminosRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/cliente': typeof AuthenticatedClienteRoute
   '/cuenta': typeof AuthenticatedCuentaRoute
@@ -115,7 +131,9 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/buscar': typeof BuscarRoute
   '/como-funciona': typeof ComoFuncionaRoute
+  '/privacidad': typeof PrivacidadRoute
   '/solicitar': typeof SolicitarRoute
+  '/terminos': typeof TerminosRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/cliente': typeof AuthenticatedClienteRoute
   '/_authenticated/cuenta': typeof AuthenticatedCuentaRoute
@@ -130,7 +148,9 @@ export interface FileRouteTypes {
     | '/auth'
     | '/buscar'
     | '/como-funciona'
+    | '/privacidad'
     | '/solicitar'
+    | '/terminos'
     | '/admin'
     | '/cliente'
     | '/cuenta'
@@ -143,7 +163,9 @@ export interface FileRouteTypes {
     | '/auth'
     | '/buscar'
     | '/como-funciona'
+    | '/privacidad'
     | '/solicitar'
+    | '/terminos'
     | '/admin'
     | '/cliente'
     | '/cuenta'
@@ -157,7 +179,9 @@ export interface FileRouteTypes {
     | '/auth'
     | '/buscar'
     | '/como-funciona'
+    | '/privacidad'
     | '/solicitar'
+    | '/terminos'
     | '/_authenticated/admin'
     | '/_authenticated/cliente'
     | '/_authenticated/cuenta'
@@ -172,7 +196,9 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   BuscarRoute: typeof BuscarRoute
   ComoFuncionaRoute: typeof ComoFuncionaRoute
+  PrivacidadRoute: typeof PrivacidadRoute
   SolicitarRoute: typeof SolicitarRoute
+  TerminosRoute: typeof TerminosRoute
   ProProIdRoute: typeof ProProIdRoute
 }
 
@@ -213,11 +239,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ComoFuncionaRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/privacidad': {
+      id: '/privacidad'
+      path: '/privacidad'
+      fullPath: '/privacidad'
+      preLoaderRoute: typeof PrivacidadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/solicitar': {
       id: '/solicitar'
       path: '/solicitar'
       fullPath: '/solicitar'
       preLoaderRoute: typeof SolicitarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/terminos': {
+      id: '/terminos'
+      path: '/terminos'
+      fullPath: '/terminos'
+      preLoaderRoute: typeof TerminosRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/admin': {
@@ -290,7 +330,9 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   BuscarRoute: BuscarRoute,
   ComoFuncionaRoute: ComoFuncionaRoute,
+  PrivacidadRoute: PrivacidadRoute,
   SolicitarRoute: SolicitarRoute,
+  TerminosRoute: TerminosRoute,
   ProProIdRoute: ProProIdRoute,
 }
 export const routeTree = rootRouteImport

@@ -12,6 +12,7 @@ import {
   MapPin,
   FileText,
   Inbox,
+  ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -45,6 +46,7 @@ import { cn } from "@/lib/utils";
 import {
   REQUEST_STATUS_LABELS,
   formatARS,
+  priceForClient,
   STORAGE_BUCKETS,
   getSignedUrl,
   QUOTE_REJECT_REASONS,
@@ -127,6 +129,30 @@ function ClientDashboard() {
   const proIds = (quotes.data ?? []).map((q) => q.pro_id);
   const { nameOf } = useProfileLookup(proIds);
 
+  // Comisión de la plataforma: el cliente ve el presupuesto del profesional
+  // + este %. Se usa el override de la categoría si existe, si no el % por
+  // defecto configurado por el admin.
+  const commissionSettings = useQuery({
+    queryKey: ["commission-settings"],
+    queryFn: async () => {
+      const [{ data: settings }, { data: overrides }] = await Promise.all([
+        supabase.from("platform_settings").select("default_commission_percent").single(),
+        supabase.from("category_commission_overrides").select("category, commission_percent"),
+      ]);
+      return {
+        default: Number(settings?.default_commission_percent ?? 20),
+        byCategory: new Map((overrides ?? []).map((o) => [o.category, Number(o.commission_percent)])),
+      };
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  function commissionFor(category: string | null | undefined) {
+    const cfg = commissionSettings.data;
+    if (!cfg) return 20;
+    return cfg.byCategory.get(category ?? "") ?? cfg.default;
+  }
+
   const myReviews = useQuery({
     queryKey: ["client-reviews", user?.id],
     enabled: !!user,
@@ -163,11 +189,12 @@ function ClientDashboard() {
     toast.success("¡Genial! Confirmá el pago para poder calificar al profesional.");
     const acceptedQuote = (quotes.data ?? []).find((q) => q.request_id === requestId && q.accepted);
     if (acceptedQuote) {
+      const req = (requests.data ?? []).find((r) => r.id === requestId);
       setPendingPayment({
         requestId,
         proId: acceptedQuote.pro_id,
         proName: nameOf(acceptedQuote.pro_id),
-        price: Number(acceptedQuote.price_offered),
+        price: priceForClient(Number(acceptedQuote.price_offered), commissionFor(req?.category)),
       });
     }
     qc.invalidateQueries();
@@ -282,7 +309,7 @@ function ClientDashboard() {
                                     <div className="flex items-center gap-2">
                                       <span className="text-xs text-muted-foreground uppercase tracking-wider">Aceptado</span>
                                       <span className="font-display text-base sm:text-lg font-bold text-foreground">
-                                        {formatARS(Number(acceptedQ.price_offered))}
+                                        {formatARS(priceForClient(Number(acceptedQ.price_offered), commissionFor(r.category)))}
                                       </span>
                                     </div>
                                   ) : rq.length > 0 ? (
@@ -370,7 +397,19 @@ function ClientDashboard() {
                                     className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl bg-surface p-3.5 border border-border/60"
                                   >
                                     <div className="min-w-0 flex-1 space-y-1">
-                                      <p className="text-sm font-bold text-foreground">{nameOf(q.pro_id)}</p>
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        <p className="text-sm font-bold text-foreground">{nameOf(q.pro_id)}</p>
+                                        <Link
+                                          to="/pro/$proId"
+                                          params={{ proId: q.pro_id }}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+                                        >
+                                          Ver perfil y trabajos
+                                          <ExternalLink className="size-3" />
+                                        </Link>
+                                      </div>
                                       {q.message && (
                                         <p className="text-xs text-muted-foreground line-clamp-2">{q.message}</p>
                                       )}
@@ -388,7 +427,7 @@ function ClientDashboard() {
 
                                     <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-border/40">
                                       <span className="font-display font-extrabold text-base sm:text-lg text-foreground shrink-0">
-                                        {formatARS(Number(q.price_offered))}
+                                        {formatARS(priceForClient(Number(q.price_offered), commissionFor(r.category)))}
                                       </span>
 
                                       <div className="flex items-center gap-2">
@@ -583,7 +622,7 @@ function ClientDashboard() {
                       </div>
                       <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
                         <span className="font-display text-base sm:text-lg font-bold text-foreground">
-                          {formatARS(Number(accepted?.price_offered ?? 0))}
+                          {formatARS(priceForClient(Number(accepted?.price_offered ?? 0), commissionFor(r.category)))}
                         </span>
                         {r.is_paid ? (
                           <Badge className="bg-emerald-100 text-emerald-800 border-0">
@@ -617,14 +656,29 @@ function ClientDashboard() {
                     <div className="rounded-xl bg-surface p-3 border border-border/50">
                       <dl className="space-y-1.5 text-xs sm:text-sm">
                         <div className="flex justify-between">
-                          <dt className="text-muted-foreground">Presupuesto acordado</dt>
+                          <dt className="text-muted-foreground">Presupuesto del profesional</dt>
                           <dd className="font-medium">
                             {formatARS(Number(accepted?.price_offered ?? 0))}
                           </dd>
                         </div>
+                        <div className="flex justify-between">
+                          <dt className="text-muted-foreground">
+                            Servicio ConfiaAMBA ({commissionFor(r.category)}%)
+                          </dt>
+                          <dd className="font-medium">
+                            {formatARS(
+                              priceForClient(Number(accepted?.price_offered ?? 0), commissionFor(r.category)) -
+                                Number(accepted?.price_offered ?? 0),
+                            )}
+                          </dd>
+                        </div>
                         <div className="flex justify-between border-t border-border/60 pt-1.5 font-bold">
-                          <dt>Total</dt>
-                          <dd>{formatARS(Number(accepted?.price_offered ?? 0))}</dd>
+                          <dt>Total a pagar</dt>
+                          <dd>
+                            {formatARS(
+                              priceForClient(Number(accepted?.price_offered ?? 0), commissionFor(r.category)),
+                            )}
+                          </dd>
                         </div>
                         {r.is_paid && r.paid_at && (
                           <p className="pt-1 text-xs text-muted-foreground">
@@ -667,7 +721,7 @@ function ClientDashboard() {
                           zone: r.zone,
                           createdAt: r.created_at,
                           scheduledAt: accepted?.scheduled_at ?? null,
-                          price: Number(accepted?.price_offered ?? 0),
+                          price: priceForClient(Number(accepted?.price_offered ?? 0), commissionFor(r.category)),
                           status: r.status,
                           statusLabel: REQUEST_STATUS_LABELS[r.status] ?? r.status,
                           isPaid: r.is_paid,
@@ -997,7 +1051,7 @@ export function ClientVerificationCard({
   async function submit() {
     setSaving(true);
     const { error } = await supabase
-      .from("profiles")
+      .from("profile_private_data")
       .update({
         id_document_url: idDoc[0]?.path ?? null,
         selfie_url: selfie[0]?.path ?? null,

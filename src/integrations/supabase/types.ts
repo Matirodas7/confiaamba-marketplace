@@ -16,7 +16,6 @@ export type Database = {
           created_at: string;
           headline: string;
           hourly_rate: number;
-          id_document_url: string | null;
           is_featured: boolean;
           is_premium: boolean;
           jobs_done: number;
@@ -39,7 +38,6 @@ export type Database = {
           created_at?: string;
           headline?: string;
           hourly_rate?: number;
-          id_document_url?: string | null;
           is_featured?: boolean;
           is_premium?: boolean;
           jobs_done?: number;
@@ -62,7 +60,6 @@ export type Database = {
           created_at?: string;
           headline?: string;
           hourly_rate?: number;
-          id_document_url?: string | null;
           is_featured?: boolean;
           is_premium?: boolean;
           jobs_done?: number;
@@ -88,71 +85,100 @@ export type Database = {
           },
         ];
       };
-      profiles: {
+      profile_private_data: {
         Row: {
           apartment: string | null;
-          avatar_url: string | null;
           created_at: string;
           dni: string | null;
-          first_name: string | null;
           floor: string | null;
-          full_name: string;
           id: string;
           id_document_url: string | null;
-          is_blocked: boolean;
-          last_name: string | null;
-          location: string | null;
-          phone: string | null;
-          security_verified: boolean;
+          pro_id_document_url: string | null;
           selfie_url: string | null;
           street: string | null;
           street_number: string | null;
           updated_at: string;
           verification_status: Database["public"]["Enums"]["verification_status"];
-          zone: Database["public"]["Enums"]["amba_zone"] | null;
         };
         Insert: {
           apartment?: string | null;
-          avatar_url?: string | null;
           created_at?: string;
           dni?: string | null;
-          first_name?: string | null;
           floor?: string | null;
-          full_name?: string;
           id: string;
           id_document_url?: string | null;
-          is_blocked?: boolean;
-          last_name?: string | null;
-          location?: string | null;
-          phone?: string | null;
-          security_verified?: boolean;
+          pro_id_document_url?: string | null;
           selfie_url?: string | null;
           street?: string | null;
           street_number?: string | null;
           updated_at?: string;
           verification_status?: Database["public"]["Enums"]["verification_status"];
-          zone?: Database["public"]["Enums"]["amba_zone"] | null;
         };
         Update: {
           apartment?: string | null;
-          avatar_url?: string | null;
           created_at?: string;
           dni?: string | null;
-          first_name?: string | null;
           floor?: string | null;
-          full_name?: string;
           id?: string;
           id_document_url?: string | null;
-          is_blocked?: boolean;
-          last_name?: string | null;
-          location?: string | null;
-          phone?: string | null;
-          security_verified?: boolean;
+          pro_id_document_url?: string | null;
           selfie_url?: string | null;
           street?: string | null;
           street_number?: string | null;
           updated_at?: string;
           verification_status?: Database["public"]["Enums"]["verification_status"];
+        };
+        Relationships: [
+          {
+            foreignKeyName: "profile_private_data_id_fkey";
+            columns: ["id"];
+            isOneToOne: true;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      profiles: {
+        Row: {
+          avatar_url: string | null;
+          created_at: string;
+          first_name: string | null;
+          full_name: string;
+          id: string;
+          is_blocked: boolean;
+          last_name: string | null;
+          location: string | null;
+          phone: string | null;
+          security_verified: boolean;
+          updated_at: string;
+          zone: Database["public"]["Enums"]["amba_zone"] | null;
+        };
+        Insert: {
+          avatar_url?: string | null;
+          created_at?: string;
+          first_name?: string | null;
+          full_name?: string;
+          id: string;
+          is_blocked?: boolean;
+          last_name?: string | null;
+          location?: string | null;
+          phone?: string | null;
+          security_verified?: boolean;
+          updated_at?: string;
+          zone?: Database["public"]["Enums"]["amba_zone"] | null;
+        };
+        Update: {
+          avatar_url?: string | null;
+          created_at?: string;
+          first_name?: string | null;
+          full_name?: string;
+          id?: string;
+          is_blocked?: boolean;
+          last_name?: string | null;
+          location?: string | null;
+          phone?: string | null;
+          security_verified?: boolean;
+          updated_at?: string;
           zone?: Database["public"]["Enums"]["amba_zone"] | null;
         };
         Relationships: [];

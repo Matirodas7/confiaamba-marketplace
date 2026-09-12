@@ -80,6 +80,24 @@ export const STORAGE_BUCKETS = {
 } as const;
 
 export const MAX_REQUEST_PHOTOS = 10;
+export const DEFAULT_COMMISSION_PERCENT = 20;
+
+/**
+ * Precio que ve el cliente: el presupuesto del profesional + la comisión de
+ * la plataforma. El profesional siempre carga y ve su propio monto (el que
+ * realmente cobra); el cliente ve ese monto ya con el margen sumado.
+ *
+ * `commissionPercent` viene de `platform_settings.default_commission_percent`
+ * (o de `category_commission_overrides` si la categoría tiene una comisión
+ * particular). Si todavía no se cargó esa configuración, se usa
+ * DEFAULT_COMMISSION_PERCENT (20%) como resguardo.
+ */
+export function priceForClient(
+  offeredByPro: number,
+  commissionPercent: number = DEFAULT_COMMISSION_PERCENT,
+) {
+  return Math.round(offeredByPro * (1 + commissionPercent / 100));
+}
 
 export function formatARS(value: number) {
   return new Intl.NumberFormat("es-AR", {

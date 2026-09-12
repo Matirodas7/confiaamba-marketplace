@@ -47,13 +47,17 @@ function CuentaPage() {
     queryKey: ["pro-details", user?.id],
     enabled: !!user && role === "professional",
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("pro_details")
-        .select("*")
-        .eq("pro_id", user!.id)
-        .maybeSingle();
+      const [{ data, error }, { data: priv, error: privError }] = await Promise.all([
+        supabase.from("pro_details").select("*").eq("pro_id", user!.id).maybeSingle(),
+        supabase
+          .from("profile_private_data")
+          .select("pro_id_document_url")
+          .eq("id", user!.id)
+          .maybeSingle(),
+      ]);
       if (error) throw error;
-      return data;
+      if (privError) throw privError;
+      return data ? { ...data, id_document_url: priv?.pro_id_document_url ?? null } : data;
     },
   });
 
@@ -225,7 +229,7 @@ function CuentaPage() {
                 </a>
 
                 <Link
-                  to="/como-funciona"
+                  to="/terminos"
                   className="flex w-full items-center justify-between p-3.5 text-left text-sm font-medium transition-colors hover:bg-muted/50"
                 >
                   <div className="flex items-center gap-3">
@@ -236,7 +240,7 @@ function CuentaPage() {
                 </Link>
 
                 <Link
-                  to="/como-funciona"
+                  to="/privacidad"
                   className="flex w-full items-center justify-between p-3.5 text-left text-sm font-medium transition-colors hover:bg-muted/50"
                 >
                   <div className="flex items-center gap-3">

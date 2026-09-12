@@ -39,7 +39,11 @@ function ProProfilePage() {
     queryKey: ["public-pro-profile", proId],
     queryFn: async () => {
       const [{ data: profile, error: pErr }, { data: details, error: dErr }] = await Promise.all([
-        supabase.from("profiles").select("*").eq("id", proId).maybeSingle(),
+        supabase
+          .from("profiles")
+          .select("id, full_name, avatar_url, location, zone, security_verified")
+          .eq("id", proId)
+          .maybeSingle(),
         supabase.from("pro_details").select("*").eq("pro_id", proId).maybeSingle(),
       ]);
       if (pErr) throw pErr;

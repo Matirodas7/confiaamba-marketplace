@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ZONES, ZONE_LABELS, type Zone } from "@/lib/marketplace";
+import { useAuth } from "@/hooks/useAuth";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -37,8 +38,12 @@ export const Route = createFileRoute("/")({
 
 function Home() {
   const navigate = useNavigate();
+  const { role } = useAuth();
   const [zone, setZone] = useState<Zone | "todas">("todas");
   const [term, setTerm] = useState("");
+  // El cartel de "registrate como profesional" es para captar profesionales
+  // nuevos: no tiene sentido mostrárselo a alguien que ya es pro, ni al admin.
+  const showProCta = role !== "professional" && role !== "admin";
 
   const handleSearch = () => {
     const trimmed = term.trim();
@@ -192,22 +197,24 @@ function Home() {
           </div>
         </section>
 
-        {/* Registro para Profesionales */}
-        <section className="mx-auto max-w-5xl px-4 py-8">
-          <div className="rounded-2xl bg-primary p-6 text-primary-foreground sm:p-8 space-y-4">
-            <div className="space-y-1">
-              <h2 className="font-display text-xl font-bold">¿Ofrecés un servicio?</h2>
-              <p className="text-xs sm:text-sm text-primary-foreground/80 leading-relaxed">
-                Registrate como profesional, elegí tu zona de trabajo y empezá a recibir pedidos de vecinos.
-              </p>
+        {/* Registro para Profesionales — solo para clientes/visitantes */}
+        {showProCta && (
+          <section className="mx-auto max-w-5xl px-4 py-8">
+            <div className="rounded-2xl bg-primary p-6 text-primary-foreground sm:p-8 space-y-4">
+              <div className="space-y-1">
+                <h2 className="font-display text-xl font-bold">¿Ofrecés un servicio?</h2>
+                <p className="text-xs sm:text-sm text-primary-foreground/80 leading-relaxed">
+                  Registrate como profesional, elegí tu zona de trabajo y empezá a recibir pedidos de vecinos.
+                </p>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                <Button asChild size="default" variant="secondary" className="font-bold rounded-xl h-11">
+                  <Link to="/auth">Registrarme como profesional</Link>
+                </Button>
+              </div>
             </div>
-            <div className="flex flex-col sm:flex-row gap-2 pt-1">
-              <Button asChild size="default" variant="secondary" className="font-bold rounded-xl h-11">
-                <Link to="/auth">Registrarme como profesional</Link>
-              </Button>
-            </div>
-          </div>
-        </section>
+          </section>
+        )}
       </main>
 
       <SiteFooter />

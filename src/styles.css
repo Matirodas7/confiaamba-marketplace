@@ -147,9 +147,19 @@
     border-color: var(--color-border);
   }
 
+  html {
+    height: 100%;
+    /* Evita el "rebote" (rubber-band) del navegador al llegar al final del
+       scroll — eso es lo que hace que el header/bottom nav fijos se vean
+       moverse cuando se scrollea rápido. */
+    overscroll-behavior-y: none;
+  }
+
   body {
+    min-height: 100%;
     background-color: var(--color-background);
     color: var(--color-foreground);
+    overscroll-behavior-y: none;
   }
 }
 

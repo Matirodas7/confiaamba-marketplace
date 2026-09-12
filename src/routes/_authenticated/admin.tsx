@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import {
@@ -38,6 +38,16 @@ import {
 } from "@/lib/marketplace";
 
 export const Route = createFileRoute("/_authenticated/admin")({
+  // Antes el chequeo de rol vivía en el componente, después de que todos los
+  // useQuery ya se habían disparado: un no-admin igual generaba el tráfico
+  // de red hacia las tablas de administración (protegidas por RLS, pero es
+  // una capa de defensa frágil). Ahora se corta acá, antes de montar nada.
+  beforeLoad: ({ context }) => {
+    const roles = (context as { roles?: string[] }).roles ?? [];
+    if (!roles.includes("admin")) {
+      throw redirect({ to: "/" });
+    }
+  },
   head: () => ({
     meta: [
       { title: "Panel de administración | ConfiaAMBA" },
@@ -62,20 +72,30 @@ function AdminDashboard() {
   const pros = useQuery({
     queryKey: ["admin-pros"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("pro_details").select("*");
+      const [{ data, error }, { data: docs, error: docsError }] = await Promise.all([
+        supabase.from("pro_details").select("*"),
+        supabase.from("profile_private_data").select("id, pro_id_document_url"),
+      ]);
       if (error) throw error;
-      return data;
+      if (docsError) throw docsError;
+      const docById = new Map((docs ?? []).map((d) => [d.id, d.pro_id_document_url]));
+      return (data ?? []).map((p) => ({
+        ...p,
+        id_document_url: docById.get(p.pro_id) ?? null,
+      }));
     },
   });
   const profiles = useQuery({
     queryKey: ["admin-profiles"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .order("created_at", { ascending: false });
+      const [{ data, error }, { data: priv, error: privError }] = await Promise.all([
+        supabase.from("profiles").select("*").order("created_at", { ascending: false }),
+        supabase.from("profile_private_data").select("*"),
+      ]);
       if (error) throw error;
-      return data;
+      if (privError) throw privError;
+      const privById = new Map((priv ?? []).map((d) => [d.id, d]));
+      return (data ?? []).map((p) => ({ ...p, ...(privById.get(p.id) ?? {}) }));
     },
   });
 
@@ -244,6 +264,18 @@ function AdminDashboard() {
     qc.invalidateQueries();
   }
 
+  async function updatePrivateData(id: string, patch: Record<string, unknown>) {
+    const { error } = await supabase
+      .from("profile_private_data")
+      .update(patch as never)
+      .eq("id", id);
+    if (error) {
+      toast.error("No se pudo actualizar");
+      return;
+    }
+    qc.invalidateQueries();
+  }
+
   const stats = [
     {
       icon: Wallet,
@@ -402,24 +434,20 @@ function AdminDashboard() {
                       <div className="mt-4 flex flex-wrap gap-3">
                         <Button
                           size="sm"
-                          onClick={() =>
-                            updateProfile(p.id, {
-                              security_verified: true,
-                              verification_status: "approved",
-                            })
-                          }
+                          onClick={() => {
+                            updateProfile(p.id, { security_verified: true });
+                            updatePrivateData(p.id, { verification_status: "approved" });
+                          }}
                         >
                           Aprobar verificación
                         </Button>
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() =>
-                            updateProfile(p.id, {
-                              security_verified: false,
-                              verification_status: "rejected",
-                            })
-                          }
+                          onClick={() => {
+                            updateProfile(p.id, { security_verified: false });
+                            updatePrivateData(p.id, { verification_status: "rejected" });
+                          }}
                         >
                           Rechazar
                         </Button>

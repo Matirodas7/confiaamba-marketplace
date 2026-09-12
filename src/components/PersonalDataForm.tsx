@@ -42,22 +42,29 @@ export function PersonalDataForm({
           e.preventDefault();
           const fd = new FormData(e.currentTarget);
           setSaving(true);
-          const { error } = await supabase
-            .from("profiles")
-            .update({
-              first_name: String(fd.get("first_name")),
-              last_name: String(fd.get("last_name")),
-              phone: String(fd.get("phone")) || null,
-              location: String(fd.get("location")) || null,
-              dni: String(fd.get("dni")) || null,
-              street: String(fd.get("street")) || null,
-              street_number: String(fd.get("street_number")) || null,
-              floor: String(fd.get("floor")) || null,
-              apartment: String(fd.get("apartment")) || null,
-            })
-            .eq("id", userId);
+          const [{ error }, { error: privError }] = await Promise.all([
+            supabase
+              .from("profiles")
+              .update({
+                first_name: String(fd.get("first_name")),
+                last_name: String(fd.get("last_name")),
+                phone: String(fd.get("phone")) || null,
+                location: String(fd.get("location")) || null,
+              })
+              .eq("id", userId),
+            supabase
+              .from("profile_private_data")
+              .update({
+                dni: String(fd.get("dni")) || null,
+                street: String(fd.get("street")) || null,
+                street_number: String(fd.get("street_number")) || null,
+                floor: String(fd.get("floor")) || null,
+                apartment: String(fd.get("apartment")) || null,
+              })
+              .eq("id", userId),
+          ]);
           setSaving(false);
-          if (error) {
+          if (error || privError) {
             toast.error("No se pudo guardar");
             return;
           }

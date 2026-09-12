@@ -56,6 +56,7 @@ import {
   ZONES,
   ZONE_LABELS,
   formatARS,
+  priceForClient,
   STORAGE_BUCKETS,
   getSignedUrl,
   REQUEST_STATUS_LABELS,
@@ -712,6 +713,12 @@ function QuoteForm({
               className="pl-6 h-10 rounded-xl text-xs"
             />
           </div>
+          {Number(price) > 0 && (
+            <p className="text-[11px] text-muted-foreground">
+              El cliente va a ver {formatARS(priceForClient(Number(price)))} (incluye el servicio
+              de ConfiaAMBA). Vos cobrás {formatARS(Number(price))}.
+            </p>
+          )}
         </div>
         <div className="flex-1 space-y-1">
           <Label htmlFor={`m-${request.id}`} className="text-xs font-semibold">Mensaje · Qué incluye</Label>
@@ -934,24 +941,29 @@ export function ProfileForm({
 
   async function save() {
     setSaving(true);
-    const { error } = await supabase
-      .from("pro_details")
-      .update({
-        headline: form.headline,
-        bio: form.bio,
-        categories: form.categories,
-        zones: form.zones as Zone[],
-        work_radius_km: form.work_radius_km,
-        starting_price: form.starting_price,
-        hourly_rate: form.hourly_rate,
-        years_experience: form.years_experience,
-        certificates_url: certificates.map((f) => f.path),
-        id_document_url: idDocument[0]?.path || null,
-        onboarding_complete: !!form.headline && form.categories.length > 0 && form.zones.length > 0,
-      })
-      .eq("pro_id", userId);
+    const [{ error }, { error: docError }] = await Promise.all([
+      supabase
+        .from("pro_details")
+        .update({
+          headline: form.headline,
+          bio: form.bio,
+          categories: form.categories,
+          zones: form.zones as Zone[],
+          work_radius_km: form.work_radius_km,
+          starting_price: form.starting_price,
+          hourly_rate: form.hourly_rate,
+          years_experience: form.years_experience,
+          certificates_url: certificates.map((f) => f.path),
+          onboarding_complete: !!form.headline && form.categories.length > 0 && form.zones.length > 0,
+        })
+        .eq("pro_id", userId),
+      supabase
+        .from("profile_private_data")
+        .update({ pro_id_document_url: idDocument[0]?.path || null })
+        .eq("id", userId),
+    ]);
     setSaving(false);
-    if (error) {
+    if (error || docError) {
       toast.error("No se pudo guardar el perfil");
       return;
     }
