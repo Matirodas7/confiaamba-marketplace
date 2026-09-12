@@ -1,5 +1,14 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Home, Wrench, ClipboardList, User, Briefcase, MessageCircle, ShieldCheck } from "lucide-react";
+import {
+  Home,
+  Wrench,
+  ClipboardList,
+  User,
+  Briefcase,
+  MessageCircle,
+  ShieldCheck,
+  FilePlus2,
+} from "lucide-react";
 import { useAuth, dashboardPathFor, type AppRole } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 
@@ -30,6 +39,7 @@ function itemsForRole(role: AppRole | null): NavItem[] {
   return [
     { to: "/", label: "Inicio", icon: Home },
     { to: "/buscar", label: "Servicios", icon: Wrench },
+    { to: "/solicitar", label: "Solicitar", icon: FilePlus2 },
     { to: dashboardPathFor(role) ?? "/cliente", label: "Pedidos", icon: ClipboardList },
     { to: "/cuenta", label: "Mi perfil", icon: User },
   ];

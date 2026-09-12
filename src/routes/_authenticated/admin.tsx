@@ -300,18 +300,18 @@ function AdminDashboard() {
       <h1 className="font-display text-3xl font-bold">Administración</h1>
       <p className="text-muted-foreground">Verificación, moderación y métricas de la plataforma.</p>
 
-      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         {stats.map((s) => (
-          <div key={s.label} className="trust-card p-5">
+          <div key={s.label} className="trust-card p-3.5 sm:p-5">
             <s.icon className="size-5 text-verified" />
-            <p className="mt-3 text-sm text-muted-foreground">{s.label}</p>
-            <p className="font-display text-2xl font-bold">{s.value}</p>
+            <p className="mt-2 sm:mt-3 text-xs sm:text-sm text-muted-foreground">{s.label}</p>
+            <p className="font-display text-lg sm:text-2xl font-bold">{s.value}</p>
           </div>
         ))}
       </div>
 
       <Tabs defaultValue="kyc" className="mt-8">
-        <TabsList className="flex-wrap">
+        <TabsList className="h-auto w-full flex-wrap justify-start gap-1.5 p-1.5">
           <TabsTrigger value="kyc">Verificación (KYC)</TabsTrigger>
           <TabsTrigger value="usuarios">Usuarios</TabsTrigger>
           <TabsTrigger value="pedidos">Pedidos</TabsTrigger>

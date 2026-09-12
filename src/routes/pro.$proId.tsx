@@ -193,6 +193,23 @@ function ProProfilePage() {
               </div>
             </div>
 
+            {/* CTA solo mobile: en celular el botón de "Contratar" de la columna
+                derecha queda al final de la página (abajo de todo). Acá se
+                repite arriba, compacto y sin la tarjeta/checklist, para que el
+                cliente lo vea antes de bajar a leer la descripción y el
+                portafolio. En desktop no se muestra (ahí ya está la tarjeta
+                de la derecha, sticky). */}
+            {!isSelf && (
+              <Button
+                asChild
+                className="w-full h-12 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-base shadow-sm transition-transform active:scale-[0.99] md:hidden"
+              >
+                <Link to="/solicitar" search={{ proId }}>
+                  + Solicitar presupuesto
+                </Link>
+              </Button>
+            )}
+
             {/* Categorías y Especialidades */}
             {(d.categories as string[])?.length > 0 && (
               <div className="flex flex-wrap gap-1.5">
@@ -324,8 +341,11 @@ function ProProfilePage() {
             </section>
           </div>
 
-          {/* COLUMNA DERECHA: Tarjeta Flotante de Contratación y Seguridad (5 Cols en PC) */}
-          <div className="md:col-span-5 md:sticky md:top-20">
+          {/* COLUMNA DERECHA: Tarjeta Flotante de Contratación y Seguridad (5 Cols en PC).
+              Solo en desktop: en mobile el CTA equivalente ya se muestra arriba,
+              antes de la descripción/portafolio (ver más arriba en esta misma
+              página). */}
+          <div className="hidden md:block md:col-span-5 md:sticky md:top-20">
             <div className="rounded-3xl border border-border/80 bg-card p-5 md:p-6 space-y-5 shadow-sm">
               <div className="text-center md:text-left space-y-1">
                 <h3 className="font-bold text-lg text-foreground">
